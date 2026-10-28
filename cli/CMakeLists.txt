@@ -7,6 +7,10 @@ if(NOT TARGET CLI11::CLI11)
 endif()
 
 add_executable(uni
+    src/cli.cpp
+    src/commands_debug.cpp
+    src/commands_device.cpp
+    src/commands_kbd.cpp
     src/input.cpp
     src/main.cpp
     src/util.cpp
