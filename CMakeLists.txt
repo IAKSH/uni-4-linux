@@ -13,6 +13,7 @@ endif()
 
 add_library(uni4core STATIC
     src/ec.cpp
+    src/hid.cpp
     src/input.cpp
     src/touchpad.cpp
     src/util.cpp

@@ -143,17 +143,22 @@ sudo systemctl enable --now uni4-tpwatch
 ```
 src/
   ec.hpp / ec.cpp          acpi_call 传输、EC 寄存器表、std::expected 错误
+  hid.hpp / hid.cpp        hidapi 适配层：枚举/打开/feature report、HidBackend 概念
   kbd.hpp                 键盘背光（header-only 模板，便于用 FakeEc 测试）
   fan.hpp                 风扇读取与 boost
-  touchpad.hpp / .cpp     hidapi feature report 7
+  touchpad.hpp / .cpp     feature report 7 协议，只依赖 hid.hpp
   input.hpp / .cpp        evdev 监听、Fn+F5、keymap、monitor
   util.hpp / .cpp         输出与 hexdump
   main.cpp                CLI11 命令树
-tests/tests.cpp           内存 EC 单元测试（无硬件）
+tests/tests.cpp           内存 EC + HID 单元测试（无硬件）
 ```
 
-生产代码只有 `AcpiEc` 一个后端；`Ec<Backend>` 是极薄的 read-modify-write 包装，
+EC 生产后端只有 `AcpiEc`；`Ec<Backend>` 是极薄的 read-modify-write 包装，
 模板参数仅用于在测试中注入 `FakeEc`，不是运行时可切换的“模式”。
+
+HID 生产后端只有 `HidApi`。`hid.hpp` **不包含** `<hidapi/hidapi.h>`，
+hidapi 的类型、枚举和打开操作全部封在 `hid.cpp`；`touchpad` 通过
+`HidBackend` 概念注入，测试用 `FakeHid` 直接驱动 feature report 逻辑。
 
 输入监听直接使用 Linux evdev：`libevdev` 只封装事件解码，不负责设备枚举，
 引入它并不会减少这里的代码量，因此没有增加依赖。
