@@ -9,6 +9,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include(GNUInstallDirs)
 include(CTest)
 
+option(UNI_BUILD_TUI "Build the FTXUI-based uni-tui" ON)
+
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
@@ -19,6 +21,9 @@ endfunction()
 
 add_subdirectory(lib)
 add_subdirectory(cli)
+if(UNI_BUILD_TUI)
+    add_subdirectory(tui)
+endif()
 
 if(BUILD_TESTING)
     add_subdirectory(tests)

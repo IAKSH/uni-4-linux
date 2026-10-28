@@ -8,6 +8,9 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 
 install -Dm755 build/uni /usr/local/bin/uni
+if [ -x build/uni-tui ]; then
+    install -Dm755 build/uni-tui /usr/local/bin/uni-tui
+fi
 
 if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
     install -Dm644 systemd/uni-kbd-color.service /etc/systemd/system/uni-kbd-color.service

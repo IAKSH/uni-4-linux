@@ -1,6 +1,6 @@
 # uni-4-linux
 
-> 项目名 `uni-4-linux` 读作 **uni (uniwill) for Linux**；实际命令和产物是 `uni`。
+> 项目名 `uni-4-linux` 读作 **uni (uniwill) for Linux**；实际命令是 `uni` 和 `uni-tui`。
 
 Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM5AG0O / Uniwill ODM）**：
 键盘 RGB 背光、触摸板开关（含 LED）与风扇状态/全速开关。
@@ -8,10 +8,10 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 本项目是 `jiguang-pro-linux` 的 Modern C++ 重写版：
 
 - 只保留 **acpi_call** 一条 EC 访问路径，移除 `/dev/port` 直写后端；
-- 代码分为可复用的 `lib/` 与命令行 `cli/` 两棵树，通过 CMake `add_subdirectory` 组织；
+- 代码分为可复用的 `lib/`、命令行 `cli/` 和 TUI `tui/` 三棵树，通过 CMake `add_subdirectory` 组织；
 - 使用 C++23（`std::expected`、`std::format`、`std::span`）；
 - 命令行解析用 [CLI11](https://github.com/CLIUtils/CLI11)，触摸板 HID 用
-  [hidapi](https://github.com/libusb/hidapi)，测试用 [doctest](https://github.com/doctest/doctest)；
+  [hidapi](https://github.com/libusb/hidapi)，TUI 用 [FTXUI](https://github.com/ArthurSonzogni/FTXUI)，测试用 [doctest](https://github.com/doctest/doctest)；
 - 测试通过内存 EC 完成，不需要真机或 `acpi_call`。
 
 ## 功能
@@ -25,6 +25,7 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 | `fan get` / `fan boost on\|off` | 风扇模式/占空比/RPM，风扇全速 |
 | `ec read/write/dump` | 原始 EC 寄存器读写/导出（调试） |
 | `keymap` / `monitor` | AT 键盘扫描码映射、输入事件监视（调试） |
+| `uni-tui` | btop 风格仪表盘，带 RGB/亮度/风扇进度条和快捷键操作 |
 
 背光空闲自动熄灭由 **EC 固件**处理（约 10 分钟无输入后熄灭，按键即醒），
 不需要常驻守护进程。
@@ -39,6 +40,7 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 | C++23 编译器（GCC >= 13） | `gcc` | `gcc-c++` |
 | CLI11（header-only） | `cli11` | `cli11-devel` |
 | hidapi（hidraw 后端） | `hidapi` | `hidapi-devel` |
+| FTXUI（仅 TUI） | `ftxui` | `ftxui-devel` |
 | doctest（仅测试） | `doctest` | `doctest-devel` |
 
 运行：
@@ -50,10 +52,10 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 
 ```bash
 # Arch（acpi_call-dkms 通常在 AUR，按你的内核选择安装方式）
-sudo pacman -S --needed cmake gcc cli11 hidapi doctest
+sudo pacman -S --needed cmake gcc cli11 hidapi ftxui doctest
 
 # Fedora（acpi_call 需自行构建）
-sudo dnf install cmake gcc-c++ cli11-devel hidapi-devel doctest-devel
+sudo dnf install cmake gcc-c++ cli11-devel hidapi-devel ftxui-devel doctest-devel
 ```
 
 ## 构建与测试
@@ -64,6 +66,13 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 
 sudo ./build/uni probe
+./build/uni-tui
+```
+
+FTXUI 缺失时 TUI 会自动跳过并给出 CMake 警告；也可显式只构建 CLI：
+
+```bash
+cmake -S . -B build -DUNI_BUILD_TUI=OFF
 ```
 
 如果未安装 doctest，CMake 会跳过测试目标并给出提示。
@@ -74,7 +83,7 @@ sudo ./build/uni probe
 sudo scripts/install.sh
 ```
 
-脚本安装二进制到 `/usr/local/bin/uni`，并安装 systemd 单元模板，但**不启用**任何服务。
+脚本安装二进制到 `/usr/local/bin/uni` 和 `/usr/local/bin/uni-tui`（TUI 构建成功时），并安装 systemd 单元模板，但**不启用**任何服务。
 也可以只安装二进制：
 
 ```bash
@@ -120,6 +129,28 @@ sudo uni monitor                    # 监听输入事件
 
 `probe`/`ec read` 显示的是 EC 原始量化值（0-50）；`kbd color` 接受 0-255 并四舍五入到 0-50。
 
+## TUI
+
+```bash
+./build/uni-tui          # 或安装后 sudo uni-tui
+```
+
+btop 风格仪表盘，约每秒刷新一次；键盘 RGB、亮度、风扇 duty/RPM 都用进度条显示。
+快捷键：
+
+| 键 | 动作 |
+|---|---|
+| `q` / `Esc` | 退出 |
+| `r` | 立即刷新 |
+| `c` | 循环颜色预设 |
+| `b` / `B` | 亮度 + / - |
+| `p` | 键盘总电源 |
+| `e` | 固件彩虹开关 |
+| `f` | 风扇 boost 开关 |
+| `t` | 触摸板开关 |
+
+没有 `acpi_call` 或触摸板时，TUI 会在对应面板显示错误信息，不会崩溃。
+
 逆向辅助脚本 [scripts/colorsnap.sh](scripts/colorsnap.sh) 与
 [scripts/snapshot.sh](scripts/snapshot.sh) 只是 `uni ec dump` 的封装，默认使用
 `build/uni`；已安装时可用 `UNI=/usr/local/bin/uni` 覆盖。
@@ -159,11 +190,17 @@ cli/
   src/support.hpp          with_ec、参数解析、类型名
   src/input.hpp / .cpp     evdev 监听、Fn+F5、keymap、monitor
   src/util.hpp / .cpp      输出与 hexdump
+tui/
+  src/main.cpp             FTXUI 事件循环、定时刷新、快捷键
+  src/model.hpp / .cpp     设备会话、Snapshot、动作与错误状态
+  src/ui.hpp / .cpp         btop 风格布局、面板、gauge 进度条
 tests/tests.cpp            内存 EC + HID 单元测试（无硬件）
+tests/tui_tests.cpp        TUI 布局/进度条/错误状态渲染测试（无硬件）
 ```
 
-`lib` 是纯设备层，不依赖 CLI11、不向 stdout 打印；`cli` 负责参数、命令编排和输出。
-库和测试通过 `add_subdirectory` 分开构建，测试只链接 `unicore`。
+`lib` 是纯设备层，不依赖 CLI11/FTXUI、不向 stdout 打印；`cli` 负责参数、命令编排和输出，
+`tui` 只链接 `unicore` + FTXUI，不复用 CLI 命令代码。库、CLI、TUI 和测试通过
+`add_subdirectory` 分开构建；测试只链接 `unicore`（TUI 测试额外链接 `unitui`/FTXUI）。
 
 设备 API 统一为 OOP 风格（Plan A：模板类 + concept，零运行时开销）：
 
@@ -183,6 +220,7 @@ auto enabled = device->is_enabled();
 避免每次操作都重新枚举/打开。测试分别注入 `FakeEc` / `FakeHid`。
 
 输入监听放在 `cli`，因为它涉及打印和命令行为；当前没有把 evdev 监听放进 `lib`。
+TUI 直接复用 `lib` 的设备类，并维护自己的 `Snapshot` 和 1 秒刷新循环。
 
 ## 已知限制
 
