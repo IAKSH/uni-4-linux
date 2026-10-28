@@ -4,7 +4,7 @@
 #include <expected>
 #include <string_view>
 
-namespace uni4linux::input {
+namespace uni::input {
 
 enum class InputError {
     NoDevices,
@@ -24,4 +24,4 @@ std::expected<void, InputError> monitor();
 // Map a scancode on the AT keyboard (EVIOCSKEYCODE_V2, legacy fallback).
 std::expected<void, InputError> remap_key(std::uint16_t scancode, std::uint16_t keycode);
 
-} // namespace uni4linux::input
+} // namespace uni::input

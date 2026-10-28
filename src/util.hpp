@@ -8,7 +8,7 @@
 #include <string_view>
 #include <utility>
 
-namespace uni4linux {
+namespace uni {
 
 template <typename... Args>
 void println(std::format_string<Args...> fmt, Args &&...args) {
@@ -22,4 +22,4 @@ void eprintln(std::format_string<Args...> fmt, Args &&...args) {
 
 void hexdump(std::span<const std::uint8_t> bytes, unsigned start_address);
 
-} // namespace uni4linux
+} // namespace uni

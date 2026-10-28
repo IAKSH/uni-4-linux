@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
+# "uni-4-linux" = "uni (uniwill) for Linux"; the installed product is "uni".
 project(uni_4_linux VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
@@ -11,20 +12,20 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-add_library(uni4core STATIC
+add_library(unicore STATIC
     src/ec.cpp
     src/hid.cpp
     src/input.cpp
     src/touchpad.cpp
     src/util.cpp
 )
-target_include_directories(uni4core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_compile_options(uni4core PRIVATE -Wall -Wextra -Wpedantic)
+target_include_directories(unicore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_options(unicore PRIVATE -Wall -Wextra -Wpedantic)
 
 find_path(HIDAPI_INCLUDE_DIR NAMES hidapi/hidapi.h REQUIRED)
 find_library(HIDAPI_LIBRARY NAMES hidapi-hidraw hidapi REQUIRED)
-target_include_directories(uni4core PRIVATE ${HIDAPI_INCLUDE_DIR})
-target_link_libraries(uni4core PUBLIC ${HIDAPI_LIBRARY})
+target_include_directories(unicore PRIVATE ${HIDAPI_INCLUDE_DIR})
+target_link_libraries(unicore PUBLIC ${HIDAPI_LIBRARY})
 
 find_package(CLI11 QUIET)
 if(NOT TARGET CLI11::CLI11)
@@ -34,10 +35,10 @@ if(NOT TARGET CLI11::CLI11)
         INTERFACE_INCLUDE_DIRECTORIES "${CLI11_INCLUDE_DIR}")
 endif()
 
-add_executable(uni4 src/main.cpp)
-target_link_libraries(uni4 PRIVATE uni4core CLI11::CLI11)
-target_compile_options(uni4 PRIVATE -Wall -Wextra -Wpedantic)
-target_compile_definitions(uni4 PRIVATE UNI4_VERSION="${PROJECT_VERSION}")
+add_executable(uni src/main.cpp)
+target_link_libraries(uni PRIVATE unicore CLI11::CLI11)
+target_compile_options(uni PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_definitions(uni PRIVATE UNI_VERSION="${PROJECT_VERSION}")
 
 include(CTest)
 if(BUILD_TESTING)
@@ -52,13 +53,13 @@ if(BUILD_TESTING)
     endif()
 
     if(TARGET doctest::doctest)
-        add_executable(uni4_tests tests/tests.cpp)
-        target_link_libraries(uni4_tests PRIVATE uni4core doctest::doctest)
-        target_compile_options(uni4_tests PRIVATE -Wall -Wextra -Wpedantic)
-        add_test(NAME uni4_tests COMMAND uni4_tests)
+        add_executable(uni_tests tests/tests.cpp)
+        target_link_libraries(uni_tests PRIVATE unicore doctest::doctest)
+        target_compile_options(uni_tests PRIVATE -Wall -Wextra -Wpedantic)
+        add_test(NAME uni_tests COMMAND uni_tests)
     else()
         message(STATUS "doctest not found; unit tests disabled")
     endif()
 endif()
 
-install(TARGETS uni4 RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS uni RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

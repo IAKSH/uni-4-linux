@@ -8,7 +8,7 @@
 #include <string_view>
 #include <utility>
 
-namespace uni4linux {
+namespace uni {
 
 inline constexpr std::string_view kAcpiCallPath{"/proc/acpi/call"};
 inline constexpr std::uint8_t kRgbMax{50};
@@ -132,4 +132,4 @@ private:
     Backend backend_;
 };
 
-} // namespace uni4linux
+} // namespace uni

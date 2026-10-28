@@ -10,25 +10,25 @@
 
 namespace {
 
-uni4linux::hid::HidBus map_bus(hid_bus_type bus) noexcept {
+uni::hid::HidBus map_bus(hid_bus_type bus) noexcept {
     switch (bus) {
     case HID_API_BUS_UNKNOWN:
-        return uni4linux::hid::HidBus::Unknown;
+        return uni::hid::HidBus::Unknown;
     case HID_API_BUS_USB:
-        return uni4linux::hid::HidBus::Usb;
+        return uni::hid::HidBus::Usb;
     case HID_API_BUS_BLUETOOTH:
-        return uni4linux::hid::HidBus::Bluetooth;
+        return uni::hid::HidBus::Bluetooth;
     case HID_API_BUS_I2C:
-        return uni4linux::hid::HidBus::I2c;
+        return uni::hid::HidBus::I2c;
     case HID_API_BUS_SPI:
-        return uni4linux::hid::HidBus::Spi;
+        return uni::hid::HidBus::Spi;
     }
-    return uni4linux::hid::HidBus::Unknown;
+    return uni::hid::HidBus::Unknown;
 }
 
 } // namespace
 
-struct uni4linux::hid::HidApi::Impl {
+struct uni::hid::HidApi::Impl {
     hid_device *handle{};
 
     explicit Impl(hid_device *device) : handle(device) {}
@@ -39,7 +39,7 @@ struct uni4linux::hid::HidApi::Impl {
     }
 };
 
-namespace uni4linux::hid {
+namespace uni::hid {
 
 HidApi::HidApi(std::unique_ptr<Impl> impl) noexcept : impl_(std::move(impl)) {}
 HidApi::HidApi(HidApi &&other) noexcept = default;
@@ -120,4 +120,4 @@ HidApi::set_feature(std::uint8_t report_id, std::span<const std::uint8_t> payloa
     return {};
 }
 
-} // namespace uni4linux::hid
+} // namespace uni::hid

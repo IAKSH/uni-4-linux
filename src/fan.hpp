@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <expected>
 
-namespace uni4linux::fan {
+namespace uni::fan {
 
 struct FanState {
     std::uint8_t mode{};
@@ -57,4 +57,4 @@ std::expected<void, EcError> set_boost(EcT &ec, bool on) {
     return ec.update(reg(Reg::FanMode), kFanBoost, on ? kFanBoost : std::uint8_t{0});
 }
 
-} // namespace uni4linux::fan
+} // namespace uni::fan

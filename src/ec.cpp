@@ -24,7 +24,7 @@ std::string_view trim(std::string_view text) noexcept {
 
 } // namespace
 
-std::string_view uni4linux::describe(EcError error) noexcept {
+std::string_view uni::describe(EcError error) noexcept {
     switch (error) {
     case EcError::CannotOpen:
         return "cannot open /proc/acpi/call (load acpi_call and run as root)";
@@ -38,8 +38,8 @@ std::string_view uni4linux::describe(EcError error) noexcept {
     return "unknown EC error";
 }
 
-std::expected<std::uint8_t, uni4linux::EcError>
-uni4linux::parse_ec_value(std::string_view text) noexcept {
+std::expected<std::uint8_t, uni::EcError>
+uni::parse_ec_value(std::string_view text) noexcept {
     text = trim(text);
     if (text.empty())
         return std::unexpected(EcError::ReadFailed);
@@ -64,16 +64,16 @@ uni4linux::parse_ec_value(std::string_view text) noexcept {
     return static_cast<std::uint8_t>(value);
 }
 
-std::expected<uni4linux::AcpiEc, uni4linux::EcError>
-uni4linux::AcpiEc::open(std::string_view path) {
+std::expected<uni::AcpiEc, uni::EcError>
+uni::AcpiEc::open(std::string_view path) {
     std::fstream file{std::string(path), std::ios::in | std::ios::out};
     if (!file)
         return std::unexpected(EcError::CannotOpen);
     return AcpiEc{std::move(file)};
 }
 
-std::expected<std::string, uni4linux::EcError>
-uni4linux::AcpiEc::evaluate(std::string_view method) noexcept {
+std::expected<std::string, uni::EcError>
+uni::AcpiEc::evaluate(std::string_view method) noexcept {
     if (!file_.is_open())
         return std::unexpected(EcError::CannotOpen);
 
@@ -94,8 +94,8 @@ uni4linux::AcpiEc::evaluate(std::string_view method) noexcept {
     return line;
 }
 
-std::expected<std::uint8_t, uni4linux::EcError>
-uni4linux::AcpiEc::read(std::uint16_t addr) noexcept {
+std::expected<std::uint8_t, uni::EcError>
+uni::AcpiEc::read(std::uint16_t addr) noexcept {
     const auto method = std::format("\\_SB.INOU.ECRR 0x{:x}", addr);
     auto result = evaluate(method);
     if (!result)
@@ -103,8 +103,8 @@ uni4linux::AcpiEc::read(std::uint16_t addr) noexcept {
     return parse_ec_value(*result);
 }
 
-std::expected<void, uni4linux::EcError>
-uni4linux::AcpiEc::write(std::uint16_t addr, std::uint8_t value) noexcept {
+std::expected<void, uni::EcError>
+uni::AcpiEc::write(std::uint16_t addr, std::uint8_t value) noexcept {
     const auto method = std::format("\\_SB.INOU.ECRW 0x{:x} 0x{:x}", addr,
                                     static_cast<unsigned>(value));
     auto result = evaluate(method);

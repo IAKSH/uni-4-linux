@@ -1,10 +1,10 @@
 [Unit]
-Description=uni4 touchpad Fn+F5 watcher
+Description=uni touchpad Fn+F5 watcher
 After=multi-user.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/uni4 tp watch
+ExecStart=/usr/local/bin/uni tp watch
 Restart=on-failure
 RestartSec=2
 

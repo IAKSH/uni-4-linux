@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <expected>
 
-namespace uni4linux::kbd {
+namespace uni::kbd {
 
 struct Rgb {
     std::uint8_t r{};
@@ -154,4 +154,4 @@ std::expected<KbdInfo, EcError> probe(EcT &ec) {
     return KbdInfo{*project, keyboard, type};
 }
 
-} // namespace uni4linux::kbd
+} // namespace uni::kbd

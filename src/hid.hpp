@@ -10,7 +10,7 @@
 #include <string_view>
 #include <vector>
 
-namespace uni4linux::hid {
+namespace uni::hid {
 
 enum class HidError {
     OpenFailed,
@@ -80,4 +80,4 @@ concept HidBackend = requires(T &device, std::uint8_t report_id,
 
 static_assert(HidBackend<HidApi>);
 
-} // namespace uni4linux::hid
+} // namespace uni::hid

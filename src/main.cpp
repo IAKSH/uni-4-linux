@@ -23,31 +23,31 @@
 #include <thread>
 #include <utility>
 
-#ifndef UNI4_VERSION
-#define UNI4_VERSION "0.1.0"
+#ifndef UNI_VERSION
+#define UNI_VERSION "0.1.0"
 #endif
 
-namespace kbd = uni4linux::kbd;
-namespace fan = uni4linux::fan;
-namespace tp = uni4linux::touchpad;
-namespace input = uni4linux::input;
+namespace kbd = uni::kbd;
+namespace fan = uni::fan;
+namespace tp = uni::touchpad;
+namespace input = uni::input;
 
-using uni4linux::AcpiEc;
-using uni4linux::Ec;
-using uni4linux::EcError;
+using uni::AcpiEc;
+using uni::Ec;
+using uni::EcError;
 
 template <typename Fn>
 int with_ec(Fn &&fn) {
     auto backend = AcpiEc::open();
     if (!backend) {
-        uni4linux::eprintln("EC: {}", uni4linux::describe(backend.error()));
+        uni::eprintln("EC: {}", uni::describe(backend.error()));
         return 1;
     }
 
     Ec ec{std::move(*backend)};
     auto result = fn(ec);
     if (!result) {
-        uni4linux::eprintln("EC: {}", uni4linux::describe(result.error()));
+        uni::eprintln("EC: {}", uni::describe(result.error()));
         return 1;
     }
     return 0;
@@ -117,10 +117,10 @@ std::expected<void, EcError> dump_ec(EcT &ec, std::uint16_t addr, std::uint32_t 
                 buffer[i] = *value;
             } else {
                 buffer[i] = 0xff;
-                uni4linux::eprintln("read failed at 0x{:04x}", current);
+                uni::eprintln("read failed at 0x{:04x}", current);
             }
         }
-        uni4linux::hexdump(std::span<const std::uint8_t>(buffer.data(), chunk),
+        uni::hexdump(std::span<const std::uint8_t>(buffer.data(), chunk),
                            static_cast<unsigned>(addr + position));
         position += chunk;
     }
@@ -133,15 +133,15 @@ int cmd_probe() {
         if (!info)
             return std::unexpected(info.error());
 
-        uni4linux::println("ec: project_id 0x{:02x} keyboard_id 0x{:02x}",
+        uni::println("ec: project_id 0x{:02x} keyboard_id 0x{:02x}",
                            static_cast<unsigned>(info->project_id),
                            static_cast<unsigned>(info->keyboard_id));
-        uni4linux::println("backlight type: {}", type_name(info->type));
+        uni::println("backlight type: {}", type_name(info->type));
 
         auto state = kbd::get_state(ec);
         if (!state)
             return std::unexpected(state.error());
-        uni4linux::println("backlight: R={} G={} B={} brightness={} power={}",
+        uni::println("backlight: R={} G={} B={} brightness={} power={}",
                            static_cast<unsigned>(state->levels.r),
                            static_cast<unsigned>(state->levels.g),
                            static_cast<unsigned>(state->levels.b), state->brightness,
@@ -149,9 +149,9 @@ int cmd_probe() {
 
         auto touchpad = tp::get_enabled();
         if (touchpad)
-            uni4linux::println("touchpad: {}", *touchpad ? "enabled" : "disabled");
+            uni::println("touchpad: {}", *touchpad ? "enabled" : "disabled");
         else
-            uni4linux::println("touchpad: {}", tp::describe(touchpad.error()));
+            uni::println("touchpad: {}", tp::describe(touchpad.error()));
         return {};
     });
 }
@@ -161,7 +161,7 @@ int cmd_ec_read(std::uint16_t addr) {
         auto value = ec.read(addr);
         if (!value)
             return std::unexpected(value.error());
-        uni4linux::println("0x{:04x} = 0x{:02x}", addr,
+        uni::println("0x{:04x} = 0x{:02x}", addr,
                            static_cast<unsigned>(*value));
         return {};
     });
@@ -172,7 +172,7 @@ int cmd_ec_write(std::uint16_t addr, std::uint8_t value) {
         auto result = ec.write(addr, value);
         if (!result)
             return std::unexpected(result.error());
-        uni4linux::println("0x{:04x} = 0x{:02x}", addr,
+        uni::println("0x{:04x} = 0x{:02x}", addr,
                            static_cast<unsigned>(value));
         return {};
     });
@@ -222,7 +222,7 @@ int cmd_kbd_breathe(kbd::Rgb rgb, int period_ms) {
             kbd::scale_rgb(rgb.b),
         };
         const auto frame = std::chrono::milliseconds(std::max(1, period_ms / 100));
-        uni4linux::eprintln(
+        uni::eprintln(
             "breathing colour {},{},{} period {}ms, Ctrl-C to stop",
             static_cast<unsigned>(rgb.r), static_cast<unsigned>(rgb.g),
             static_cast<unsigned>(rgb.b), period_ms);
@@ -231,9 +231,9 @@ int cmd_kbd_breathe(kbd::Rgb rgb, int period_ms) {
         int direction = 1;
         for (;;) {
             const kbd::Rgb current{
-                static_cast<std::uint8_t>(levels.r * level / uni4linux::kRgbMax),
-                static_cast<std::uint8_t>(levels.g * level / uni4linux::kRgbMax),
-                static_cast<std::uint8_t>(levels.b * level / uni4linux::kRgbMax),
+                static_cast<std::uint8_t>(levels.r * level / uni::kRgbMax),
+                static_cast<std::uint8_t>(levels.g * level / uni::kRgbMax),
+                static_cast<std::uint8_t>(levels.b * level / uni::kRgbMax),
             };
             auto result = kbd::write_levels(ec, current);
             if (!result)
@@ -241,8 +241,8 @@ int cmd_kbd_breathe(kbd::Rgb rgb, int period_ms) {
 
             std::this_thread::sleep_for(frame);
             level += direction;
-            if (level >= uni4linux::kRgbMax) {
-                level = uni4linux::kRgbMax;
+            if (level >= uni::kRgbMax) {
+                level = uni::kRgbMax;
                 direction = -1;
             } else if (level <= 0) {
                 level = 0;
@@ -259,10 +259,10 @@ int cmd_kbd_test(kbd::Rgb rgb) {
         if (auto result = kbd::set_brightness(ec, 4); !result)
             return std::unexpected(result.error());
 
-        uni4linux::println("after write, 0x0760-0x0770:");
+        uni::println("after write, 0x0760-0x0770:");
         if (auto result = dump_ec(ec, 0x0760, 16); !result)
             return result;
-        uni4linux::println("after write, 0x1800-0x1810:");
+        uni::println("after write, 0x1800-0x1810:");
         return dump_ec(ec, 0x1800, 16);
     });
 }
@@ -270,37 +270,37 @@ int cmd_kbd_test(kbd::Rgb rgb) {
 int cmd_tp_get() {
     auto state = tp::get_enabled();
     if (!state) {
-        uni4linux::eprintln("touchpad: {}", tp::describe(state.error()));
+        uni::eprintln("touchpad: {}", tp::describe(state.error()));
         return 1;
     }
-    uni4linux::println("{}", *state ? 1 : 0);
+    uni::println("{}", *state ? 1 : 0);
     return 0;
 }
 
 int cmd_tp_set(bool enable) {
     auto result = tp::set_enabled(enable);
     if (!result) {
-        uni4linux::eprintln("touchpad: {}", tp::describe(result.error()));
+        uni::eprintln("touchpad: {}", tp::describe(result.error()));
         return 1;
     }
-    uni4linux::println("touchpad {}", enable ? "enabled" : "disabled");
+    uni::println("touchpad {}", enable ? "enabled" : "disabled");
     return 0;
 }
 
 int cmd_tp_toggle() {
     auto state = tp::toggle();
     if (!state) {
-        uni4linux::eprintln("touchpad: {}", tp::describe(state.error()));
+        uni::eprintln("touchpad: {}", tp::describe(state.error()));
         return 1;
     }
-    uni4linux::println("touchpad {}", *state ? "enabled" : "disabled");
+    uni::println("touchpad {}", *state ? "enabled" : "disabled");
     return 0;
 }
 
 int cmd_tp_watch() {
     auto result = input::watch_touchpad();
     if (!result) {
-        uni4linux::eprintln("tp watch: {}", input::describe(result.error()));
+        uni::eprintln("tp watch: {}", input::describe(result.error()));
         return 1;
     }
     return 0;
@@ -312,12 +312,12 @@ int cmd_fan_get() {
         if (!state)
             return std::unexpected(state.error());
 
-        uni4linux::println("mode: 0x{:02x}{}{}", static_cast<unsigned>(state->mode),
-                           (state->mode & uni4linux::kFanBoost) ? " (boost)" : "",
-                           (state->mode & uni4linux::kFanManual) ? " (manual)" : "");
-        uni4linux::println("duty: left {}% right {}%", state->left_duty / 2,
+        uni::println("mode: 0x{:02x}{}{}", static_cast<unsigned>(state->mode),
+                           (state->mode & uni::kFanBoost) ? " (boost)" : "",
+                           (state->mode & uni::kFanManual) ? " (manual)" : "");
+        uni::println("duty: left {}% right {}%", state->left_duty / 2,
                            state->right_duty / 2);
-        uni4linux::println("rpm:  left {} right {}", state->left_rpm,
+        uni::println("rpm:  left {} right {}", state->left_rpm,
                            state->right_rpm);
         return {};
     });
@@ -327,7 +327,7 @@ int cmd_fan_boost(bool on) {
     return with_ec([on](auto &ec) -> std::expected<void, EcError> {
         if (auto result = fan::set_boost(ec, on); !result)
             return std::unexpected(result.error());
-        uni4linux::println("fan boost {}", on ? "on" : "off");
+        uni::println("fan boost {}", on ? "on" : "off");
         return {};
     });
 }
@@ -335,7 +335,7 @@ int cmd_fan_boost(bool on) {
 int cmd_keymap(std::uint16_t scancode, std::uint16_t keycode) {
     auto result = input::remap_key(scancode, keycode);
     if (!result) {
-        uni4linux::eprintln("keymap: {}", input::describe(result.error()));
+        uni::eprintln("keymap: {}", input::describe(result.error()));
         return 1;
     }
     return 0;
@@ -344,7 +344,7 @@ int cmd_keymap(std::uint16_t scancode, std::uint16_t keycode) {
 int cmd_monitor() {
     auto result = input::monitor();
     if (!result) {
-        uni4linux::eprintln("monitor: {}", input::describe(result.error()));
+        uni::eprintln("monitor: {}", input::describe(result.error()));
         return 1;
     }
     return 0;
@@ -364,7 +364,7 @@ void add_on_off_option(CLI::App &command, std::string &state) {
 
 int main(int argc, char **argv) {
     CLI::App app{"Uniwill EC control for the MECHREVO Jiguang Pro (GM5AG0O)"};
-    app.set_version_flag("-V,--version", UNI4_VERSION);
+    app.set_version_flag("-V,--version", UNI_VERSION);
     app.require_subcommand(1);
 
     auto *probe = app.add_subcommand("probe", "Print EC/backlight/touchpad state");
@@ -463,7 +463,7 @@ int main(int argc, char **argv) {
     if (ec_read->count() > 0) {
         const auto addr = parse_number<std::uint16_t>(read_addr);
         if (!addr) {
-            uni4linux::eprintln("invalid address: {}", read_addr);
+            uni::eprintln("invalid address: {}", read_addr);
             return 2;
         }
         return cmd_ec_read(*addr);
@@ -473,7 +473,7 @@ int main(int argc, char **argv) {
         const auto addr = parse_number<std::uint16_t>(write_addr);
         const auto value = parse_number<std::uint8_t>(write_value);
         if (!addr || !value) {
-            uni4linux::eprintln("invalid address or value");
+            uni::eprintln("invalid address or value");
             return 2;
         }
         return cmd_ec_write(*addr, *value);
@@ -484,7 +484,7 @@ int main(int argc, char **argv) {
         const auto length = parse_number<std::uint32_t>(dump_length);
         if (!addr || !length || *length == 0 ||
             static_cast<std::uint32_t>(*addr) + *length > 0x10000u) {
-            uni4linux::eprintln("invalid address or length");
+            uni::eprintln("invalid address or length");
             return 2;
         }
         return cmd_ec_dump(*addr, *length);
@@ -544,7 +544,7 @@ int main(int argc, char **argv) {
         const auto scancode = parse_scancode(keymap_scancode);
         const auto keycode = parse_number<std::uint16_t>(keymap_keycode);
         if (!scancode || !keycode) {
-            uni4linux::eprintln("invalid scancode or keycode");
+            uni::eprintln("invalid scancode or keycode");
             return 2;
         }
         return cmd_keymap(*scancode, *keycode);

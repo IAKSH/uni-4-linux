@@ -1,5 +1,7 @@
 # uni-4-linux
 
+> 项目名 `uni-4-linux` 读作 **uni (uniwill) for Linux**；实际命令和产物是 `uni`。
+
 Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM5AG0O / Uniwill ODM）**：
 键盘 RGB 背光、触摸板开关（含 LED）与风扇状态/全速开关。
 
@@ -61,7 +63,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 
-sudo ./build/uni4 probe
+sudo ./build/uni probe
 ```
 
 如果未安装 doctest，CMake 会跳过测试目标并给出提示。
@@ -72,7 +74,7 @@ sudo ./build/uni4 probe
 sudo scripts/install.sh
 ```
 
-脚本安装二进制到 `/usr/local/bin/uni4`，并安装 systemd 单元模板，但**不启用**任何服务。
+脚本安装二进制到 `/usr/local/bin/uni`，并安装 systemd 单元模板，但**不启用**任何服务。
 也可以只安装二进制：
 
 ```bash
@@ -82,58 +84,58 @@ sudo cmake --install build
 ## 用法
 
 ```bash
-sudo uni4 probe
+sudo uni probe
 
 # 键盘背光
-sudo uni4 kbd color 255 0 0          # 纯红（0-255，EC 会量化到 0-50）
-sudo uni4 kbd color 0 255 0          # 纯绿
-sudo uni4 kbd color 255 255 255      # 白色
-sudo uni4 kbd brightness 3           # 亮度 0..4
-sudo uni4 kbd power off              # 总电源关（彻底熄灭）
-sudo uni4 kbd power on               # 总电源开
-sudo uni4 kbd effect rainbow         # 固件彩虹动画
-sudo uni4 kbd effect static          # 退出彩虹，回到静态色
-sudo uni4 kbd breathe 255 0 0 2000   # 呼吸灯：颜色 + 周期 ms
-sudo uni4 kbd off                    # 关闭背光
+sudo uni kbd color 255 0 0          # 纯红（0-255，EC 会量化到 0-50）
+sudo uni kbd color 0 255 0          # 纯绿
+sudo uni kbd color 255 255 255      # 白色
+sudo uni kbd brightness 3           # 亮度 0..4
+sudo uni kbd power off              # 总电源关（彻底熄灭）
+sudo uni kbd power on               # 总电源开
+sudo uni kbd effect rainbow         # 固件彩虹动画
+sudo uni kbd effect static          # 退出彩虹，回到静态色
+sudo uni kbd breathe 255 0 0 2000   # 呼吸灯：颜色 + 周期 ms
+sudo uni kbd off                    # 关闭背光
 
 # 触摸板（开关 + LED）
-sudo uni4 tp get                     # 1 = 启用，0 = 禁用
-sudo uni4 tp toggle
-sudo uni4 tp on
-sudo uni4 tp off
-sudo uni4 tp watch                   # 监听 Fn+F5 / KEY_F21 / 旧版 keymap 350
+sudo uni tp get                     # 1 = 启用，0 = 禁用
+sudo uni tp toggle
+sudo uni tp on
+sudo uni tp off
+sudo uni tp watch                   # 监听 Fn+F5 / KEY_F21 / 旧版 keymap 350
 
 # 风扇
-sudo uni4 fan get                    # mode / duty / RPM（只读）
-sudo uni4 fan boost on               # CPU+GPU 风扇全速
-sudo uni4 fan boost off              # 恢复自动
+sudo uni fan get                    # mode / duty / RPM（只读）
+sudo uni fan boost on               # CPU+GPU 风扇全速
+sudo uni fan boost off              # 恢复自动
 
 # 调试
-sudo uni4 ec read 0x0769
-sudo uni4 ec write 0x0769 50
-sudo uni4 ec dump 0x0700 0x30        # 只读静态设置区，勿批量读电池区
-sudo uni4 keymap f8 191              # 物理触摸板按键（可选，不可靠；旧版 350 也识别）
-sudo uni4 monitor                    # 监听输入事件
+sudo uni ec read 0x0769
+sudo uni ec write 0x0769 50
+sudo uni ec dump 0x0700 0x30        # 只读静态设置区，勿批量读电池区
+sudo uni keymap f8 191              # 物理触摸板按键（可选，不可靠；旧版 350 也识别）
+sudo uni monitor                    # 监听输入事件
 ```
 
 `probe`/`ec read` 显示的是 EC 原始量化值（0-50）；`kbd color` 接受 0-255 并四舍五入到 0-50。
 
 逆向辅助脚本 [scripts/colorsnap.sh](scripts/colorsnap.sh) 与
-[scripts/snapshot.sh](scripts/snapshot.sh) 只是 `uni4 ec dump` 的封装，默认使用
-`build/uni4`；已安装时可用 `UNI4=/usr/local/bin/uni4` 覆盖。
+[scripts/snapshot.sh](scripts/snapshot.sh) 只是 `uni ec dump` 的封装，默认使用
+`build/uni`；已安装时可用 `UNI=/usr/local/bin/uni` 覆盖。
 
 ## systemd
 
 ```bash
 # 开机彩虹 + 常亮
-sudo systemctl enable --now uni4-kbd-rainbow
+sudo systemctl enable --now uni-kbd-rainbow
 
 # 开机固定颜色：先编辑 RGB，再启用
-sudo systemctl edit --full uni4-kbd-color
-sudo systemctl enable --now uni4-kbd-color
+sudo systemctl edit --full uni-kbd-color
+sudo systemctl enable --now uni-kbd-color
 
 # Fn+F5 触摸板切换
-sudo systemctl enable --now uni4-tpwatch
+sudo systemctl enable --now uni-tpwatch
 ```
 
 颜色和效果都是一次性写入 EC，**持久保留**，不需要常驻进程。

@@ -9,7 +9,7 @@
 #include <span>
 #include <string_view>
 
-namespace uni4linux::touchpad {
+namespace uni::touchpad {
 
 enum class TouchpadError {
     NotFound,
@@ -84,4 +84,4 @@ std::expected<bool, TouchpadError> get_enabled();
 std::expected<void, TouchpadError> set_enabled(bool enable);
 std::expected<bool, TouchpadError> toggle();
 
-} // namespace uni4linux::touchpad
+} // namespace uni::touchpad

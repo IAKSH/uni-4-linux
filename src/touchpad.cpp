@@ -4,7 +4,7 @@
 #include <string_view>
 #include <utility>
 
-namespace uni4linux::touchpad {
+namespace uni::touchpad {
 namespace {
 
 constexpr std::uint16_t kPixArtVendor = 0x093a;
@@ -107,4 +107,4 @@ std::expected<bool, TouchpadError> toggle() {
     return toggle(*device);
 }
 
-} // namespace uni4linux::touchpad
+} // namespace uni::touchpad

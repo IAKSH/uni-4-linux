@@ -20,7 +20,7 @@
 
 namespace {
 
-using namespace uni4linux;
+using namespace uni;
 
 struct FakeEc {
     std::map<std::uint16_t, std::uint8_t> regs;
@@ -90,7 +90,7 @@ TEST_CASE("acpi_call text results are parsed") {
 }
 
 TEST_CASE("missing acpi_call path is reported") {
-    auto backend = AcpiEc::open("/definitely/not/here/uni4-acpi-call");
+    auto backend = AcpiEc::open("/definitely/not/here/uni-acpi-call");
     REQUIRE_FALSE(backend.has_value());
     CHECK(backend.error() == EcError::CannotOpen);
 }

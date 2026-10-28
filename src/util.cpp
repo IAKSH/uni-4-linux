@@ -1,6 +1,6 @@
 #include "util.hpp"
 
-void uni4linux::hexdump(std::span<const std::uint8_t> bytes, unsigned start_address) {
+void uni::hexdump(std::span<const std::uint8_t> bytes, unsigned start_address) {
     for (std::size_t i = 0; i < bytes.size(); i += 16) {
         std::cout << std::format("{:04x}: ", start_address + static_cast<unsigned>(i));
         for (std::size_t j = 0; j < 16; ++j) {

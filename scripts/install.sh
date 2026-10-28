@@ -7,22 +7,22 @@ cd "$root_dir"
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 
-install -Dm755 build/uni4 /usr/local/bin/uni4
+install -Dm755 build/uni /usr/local/bin/uni
 
 if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
-    install -Dm644 systemd/uni4-kbd-color.service /etc/systemd/system/uni4-kbd-color.service
-    install -Dm644 systemd/uni4-kbd-rainbow.service /etc/systemd/system/uni4-kbd-rainbow.service
-    install -Dm644 systemd/uni4-tpwatch.service /etc/systemd/system/uni4-tpwatch.service
+    install -Dm644 systemd/uni-kbd-color.service /etc/systemd/system/uni-kbd-color.service
+    install -Dm644 systemd/uni-kbd-rainbow.service /etc/systemd/system/uni-kbd-rainbow.service
+    install -Dm644 systemd/uni-tpwatch.service /etc/systemd/system/uni-tpwatch.service
     systemctl daemon-reload
 
     cat <<'EOF'
 
 systemd units installed (none enabled). Common choices:
-  systemctl enable --now uni4-kbd-rainbow
-  systemctl enable --now uni4-kbd-color      # edit RGB values first
-  systemctl enable --now uni4-tpwatch
+  systemctl enable --now uni-kbd-rainbow
+  systemctl enable --now uni-kbd-color      # edit RGB values first
+  systemctl enable --now uni-tpwatch
 EOF
 fi
 
 echo
-echo "done. try: sudo uni4 probe"
+echo "done. try: sudo uni probe"

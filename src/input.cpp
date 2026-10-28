@@ -125,7 +125,7 @@ std::string key_name(std::uint16_t code) {
 }
 
 template <typename Handler>
-std::expected<void, uni4linux::input::InputError>
+std::expected<void, uni::input::InputError>
 poll_loop(std::vector<EventDevice> &devices, Handler &&handler) {
     std::vector<pollfd> fds;
     fds.reserve(devices.size());
@@ -137,7 +137,7 @@ poll_loop(std::vector<EventDevice> &devices, Handler &&handler) {
         if (ready < 0) {
             if (errno == EINTR)
                 continue;
-            return std::unexpected(uni4linux::input::InputError::OpenFailed);
+            return std::unexpected(uni::input::InputError::OpenFailed);
         }
 
         for (std::size_t i = 0; i < devices.size(); ++i) {
@@ -186,7 +186,7 @@ int find_at_keyboard(std::string &path) {
 
 } // namespace
 
-namespace uni4linux::input {
+namespace uni::input {
 
 std::string_view describe(InputError error) noexcept {
     switch (error) {
@@ -289,4 +289,4 @@ std::expected<void, InputError> remap_key(std::uint16_t scancode,
     return {};
 }
 
-} // namespace uni4linux::input
+} // namespace uni::input
