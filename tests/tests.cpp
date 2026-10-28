@@ -207,6 +207,7 @@ TEST_CASE("keyboard state decodes levels, brightness and power") {
     fake.regs[address(Reg::KbColorG)] = 0;
     fake.regs[address(Reg::KbColorB)] = 0;
     fake.regs[address(Reg::KbEnable)] = 0x72;
+    fake.regs[address(Reg::KbColorTrigger)] = kKbTriggerRainbow;
     Ec<FakeEc> ec{std::move(fake)};
     kbd::Keyboard keyboard{ec};
 
@@ -217,6 +218,7 @@ TEST_CASE("keyboard state decodes levels, brightness and power") {
     CHECK(state->levels.b == 0);
     CHECK(state->brightness == 3);
     CHECK_FALSE(state->power);
+    CHECK(state->rainbow);
 }
 
 TEST_CASE("keyboard probe reports a one-zone RGB keyboard") {

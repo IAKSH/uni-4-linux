@@ -18,6 +18,7 @@ struct KbdState {
     Rgb levels{};
     int brightness{};
     bool power{};
+    bool rainbow{};
 };
 
 enum class KbdType {
@@ -125,11 +126,13 @@ public:
         if (!enable)
             return std::unexpected(enable.error());
 
+        const auto trigger = ec_.read(reg(Reg::KbColorTrigger)).value_or(0);
         const auto brightness = std::min<int>(4, (*enable >> 5) & 0x07);
         return KbdState{
             Rgb{*red, *green, *blue},
             brightness,
             (*enable & kKbPowerOff) == 0,
+            (trigger & kKbTriggerRainbow) != 0,
         };
     }
 
