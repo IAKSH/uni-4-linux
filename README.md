@@ -118,6 +118,10 @@ sudo uni4 monitor                    # 监听输入事件
 
 `probe`/`ec read` 显示的是 EC 原始量化值（0-50）；`kbd color` 接受 0-255 并四舍五入到 0-50。
 
+逆向辅助脚本 [scripts/colorsnap.sh](scripts/colorsnap.sh) 与
+[scripts/snapshot.sh](scripts/snapshot.sh) 只是 `uni4 ec dump` 的封装，默认使用
+`build/uni4`；已安装时可用 `UNI4=/usr/local/bin/uni4` 覆盖。
+
 ## systemd
 
 ```bash
