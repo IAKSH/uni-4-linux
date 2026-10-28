@@ -8,7 +8,7 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 本项目是 `jiguang-pro-linux` 的 Modern C++ 重写版：
 
 - 只保留 **acpi_call** 一条 EC 访问路径，移除 `/dev/port` 直写后端；
-- 代码按职责平铺在 `src/`，没有额外的后端抽象层，KISS；
+- 代码分为可复用的 `lib/` 与命令行 `cli/` 两棵树，通过 CMake `add_subdirectory` 组织；
 - 使用 C++23（`std::expected`、`std::format`、`std::span`）；
 - 命令行解析用 [CLI11](https://github.com/CLIUtils/CLI11)，触摸板 HID 用
   [hidapi](https://github.com/libusb/hidapi)，测试用 [doctest](https://github.com/doctest/doctest)；
@@ -143,27 +143,46 @@ sudo systemctl enable --now uni-tpwatch
 ## 设计
 
 ```
-src/
-  ec.hpp / ec.cpp          acpi_call 传输、EC 寄存器表、std::expected 错误
-  hid.hpp / hid.cpp        hidapi 适配层：枚举/打开/feature report、HidBackend 概念
-  kbd.hpp                 键盘背光（header-only 模板，便于用 FakeEc 测试）
-  fan.hpp                 风扇读取与 boost
-  touchpad.hpp / .cpp     feature report 7 协议，只依赖 hid.hpp
-  input.hpp / .cpp        evdev 监听、Fn+F5、keymap、monitor
-  util.hpp / .cpp         输出与 hexdump
-  main.cpp                CLI11 命令树
-tests/tests.cpp           内存 EC + HID 单元测试（无硬件）
+lib/
+  include/uni/ec.hpp       acpi_call 传输、EC 寄存器表、std::expected 错误
+  include/uni/hid.hpp      hidapi 适配层接口：枚举/打开/feature report、HidBackend 概念
+  include/uni/kbd.hpp      kbd::Keyboard<EcT> 背光类模板
+  include/uni/fan.hpp      fan::Fan<EcT> 风扇类模板
+  include/uni/touchpad.hpp touchpad::Touchpad<HidT> 会话类模板 + touchpad::open()
+  src/ec.cpp / hid.cpp / touchpad.cpp
+cli/
+  src/main.cpp             ~24 行：构造 CLI、parse、dispatch
+  src/cli.hpp / cli.cpp    Options/Commands、CLI11 命令树、分发
+  src/commands_kbd.cpp     键盘功能命令
+  src/commands_device.cpp  probe / tp / fan
+  src/commands_debug.cpp   ec read/write/dump、kbd test、keymap、monitor
+  src/support.hpp          with_ec、参数解析、类型名
+  src/input.hpp / .cpp     evdev 监听、Fn+F5、keymap、monitor
+  src/util.hpp / .cpp      输出与 hexdump
+tests/tests.cpp            内存 EC + HID 单元测试（无硬件）
 ```
 
-EC 生产后端只有 `AcpiEc`；`Ec<Backend>` 是极薄的 read-modify-write 包装，
-模板参数仅用于在测试中注入 `FakeEc`，不是运行时可切换的“模式”。
+`lib` 是纯设备层，不依赖 CLI11、不向 stdout 打印；`cli` 负责参数、命令编排和输出。
+库和测试通过 `add_subdirectory` 分开构建，测试只链接 `unicore`。
 
-HID 生产后端只有 `HidApi`。`hid.hpp` **不包含** `<hidapi/hidapi.h>`，
-hidapi 的类型、枚举和打开操作全部封在 `hid.cpp`；`touchpad` 通过
-`HidBackend` 概念注入，测试用 `FakeHid` 直接驱动 feature report 逻辑。
+设备 API 统一为 OOP 风格（Plan A：模板类 + concept，零运行时开销）：
 
-输入监听直接使用 Linux evdev：`libevdev` 只封装事件解码，不负责设备枚举，
-引入它并不会减少这里的代码量，因此没有增加依赖。
+```cpp
+kbd::Keyboard keyboard{ec};
+keyboard.set_color({255, 0, 0});
+auto state = keyboard.state();
+
+fan::Fan fan_device{ec};
+auto fan_state = fan_device.state();
+
+auto device = touchpad::open();      // Touchpad<hid::HidApi> 会话
+auto enabled = device->is_enabled();
+```
+
+`Keyboard`/`Fan` 持有共享 EC 的引用，不拥有 EC；`Touchpad` 持有自己的 HID 后端，
+避免每次操作都重新枚举/打开。测试分别注入 `FakeEc` / `FakeHid`。
+
+输入监听放在 `cli`，因为它涉及打印和命令行为；当前没有把 evdev 监听放进 `lib`。
 
 ## 已知限制
 
