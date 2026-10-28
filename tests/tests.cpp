@@ -138,8 +138,9 @@ TEST_CASE("setting a colour writes all channels and exits rainbow") {
     FakeEc fake;
     fake.regs[address(Reg::KbColorTrigger)] = kKbTriggerRainbow;
     Ec<FakeEc> ec{std::move(fake)};
+    kbd::Keyboard keyboard{ec};
 
-    auto result = kbd::set_color(ec, kbd::Rgb{255, 0, 6});
+    auto result = keyboard.set_color(kbd::Rgb{255, 0, 6});
     REQUIRE(result.has_value());
     CHECK(ec.backend().regs.at(address(Reg::KbColorR)) == 50);
     CHECK(ec.backend().regs.at(address(Reg::KbColorG)) == 0);
@@ -151,13 +152,14 @@ TEST_CASE("brightness preserves the low nibble and clamps to 0..4") {
     FakeEc fake;
     fake.regs[address(Reg::KbEnable)] = kKbPowerOff;
     Ec<FakeEc> ec{std::move(fake)};
+    kbd::Keyboard keyboard{ec};
 
-    auto result = kbd::set_brightness(ec, 3);
+    auto result = keyboard.set_brightness(3);
     REQUIRE(result.has_value());
     CHECK(ec.backend().regs.at(address(Reg::KbEnable)) ==
           (kKbPowerOff | (3 << 5) | kKbBrightnessApply));
 
-    CHECK(kbd::set_brightness(ec, 99).has_value());
+    CHECK(keyboard.set_brightness(99).has_value());
     CHECK(ec.backend().regs.at(address(Reg::KbEnable)) ==
           (kKbPowerOff | (4 << 5) | kKbBrightnessApply));
 }
@@ -171,8 +173,9 @@ TEST_CASE("power on restores the stored colour and preserves rainbow") {
     fake.regs[address(Reg::KbColorG)] = 20;
     fake.regs[address(Reg::KbColorB)] = 30;
     Ec<FakeEc> ec{std::move(fake)};
+    kbd::Keyboard keyboard{ec};
 
-    auto result = kbd::set_power(ec, true);
+    auto result = keyboard.set_power(true);
     REQUIRE(result.has_value());
     CHECK(ec.backend().regs.at(address(Reg::KbEnable)) == 0x00);
     CHECK(ec.backend().regs.at(address(Reg::KbColorTrigger)) ==
@@ -189,8 +192,9 @@ TEST_CASE("power off rewrites the trigger and sets the power bit") {
     fake.regs[address(Reg::KbColorTrigger)] = kKbTriggerRgb;
     fake.regs[address(Reg::KbPowerPrep)] = 0x22;
     Ec<FakeEc> ec{std::move(fake)};
+    kbd::Keyboard keyboard{ec};
 
-    auto result = kbd::set_power(ec, false);
+    auto result = keyboard.set_power(false);
     REQUIRE(result.has_value());
     CHECK(ec.backend().regs.at(address(Reg::KbEnable)) == kKbPowerOff);
     CHECK(ec.backend().regs.at(address(Reg::KbColorTrigger)) == kKbTriggerRgb);
@@ -204,8 +208,9 @@ TEST_CASE("keyboard state decodes levels, brightness and power") {
     fake.regs[address(Reg::KbColorB)] = 0;
     fake.regs[address(Reg::KbEnable)] = 0x72;
     Ec<FakeEc> ec{std::move(fake)};
+    kbd::Keyboard keyboard{ec};
 
-    auto state = kbd::get_state(ec);
+    auto state = keyboard.state();
     REQUIRE(state.has_value());
     CHECK(state->levels.r == 50);
     CHECK(state->levels.g == 0);
@@ -220,8 +225,9 @@ TEST_CASE("keyboard probe reports a one-zone RGB keyboard") {
     fake.regs[address(Reg::KeyboardId)] = 0x01;
     fake.regs[address(Reg::KbSupport)] = 0x04;
     Ec<FakeEc> ec{std::move(fake)};
+    kbd::Keyboard keyboard{ec};
 
-    auto info = kbd::probe(ec);
+    auto info = keyboard.probe();
     REQUIRE(info.has_value());
     CHECK(info->project_id == 0x82);
     CHECK(info->keyboard_id == 0x01);
@@ -232,12 +238,13 @@ TEST_CASE("rainbow effect only touches the rainbow bit") {
     FakeEc fake;
     fake.regs[address(Reg::KbColorTrigger)] = 0x01;
     Ec<FakeEc> ec{std::move(fake)};
+    kbd::Keyboard keyboard{ec};
 
-    REQUIRE(kbd::set_effect(ec, true).has_value());
+    REQUIRE(keyboard.set_effect(true).has_value());
     CHECK(ec.backend().regs.at(address(Reg::KbColorTrigger)) ==
           (kKbTriggerRainbow | 0x01));
 
-    REQUIRE(kbd::set_effect(ec, false).has_value());
+    REQUIRE(keyboard.set_effect(false).has_value());
     CHECK(ec.backend().regs.at(address(Reg::KbColorTrigger)) == 0x01);
 }
 
@@ -245,11 +252,12 @@ TEST_CASE("fan boost preserves unrelated mode bits") {
     FakeEc fake;
     fake.regs[address(Reg::FanMode)] = kFanManual;
     Ec<FakeEc> ec{std::move(fake)};
+    fan::Fan fan_device{ec};
 
-    REQUIRE(fan::set_boost(ec, true).has_value());
+    REQUIRE(fan_device.set_boost(true).has_value());
     CHECK(ec.backend().regs.at(address(Reg::FanMode)) == (kFanManual | kFanBoost));
 
-    REQUIRE(fan::set_boost(ec, false).has_value());
+    REQUIRE(fan_device.set_boost(false).has_value());
     CHECK(ec.backend().regs.at(address(Reg::FanMode)) == kFanManual);
 }
 
@@ -263,8 +271,9 @@ TEST_CASE("fan telemetry combines high and low RPM bytes") {
     fake.regs[address(Reg::FanRightRpmHi)] = 0x56;
     fake.regs[address(Reg::FanRightRpmLo)] = 0x78;
     Ec<FakeEc> ec{std::move(fake)};
+    fan::Fan fan_device{ec};
 
-    auto state = fan::get(ec);
+    auto state = fan_device.state();
     REQUIRE(state.has_value());
     CHECK(state->mode == kFanBoost);
     CHECK(state->left_duty == 100);
@@ -284,41 +293,46 @@ TEST_CASE("touchpad selection accepts PixArt and Uniwill names") {
 }
 
 TEST_CASE("touchpad feature reports use the injected HID backend") {
+    using Touchpad = touchpad::Touchpad<FakeHid>;
     FakeHid fake;
-    fake.reports[touchpad::kReportId] = {0x01};
+    fake.reports[Touchpad::report_id] = {0x01};
+    Touchpad device{std::move(fake)};
 
-    auto enabled = touchpad::get_enabled(fake);
+    auto enabled = device.is_enabled();
     REQUIRE(enabled.has_value());
     CHECK(*enabled);
 
-    auto disabled = touchpad::set_enabled(fake, false);
+    auto disabled = device.set_enabled(false);
     REQUIRE(disabled.has_value());
-    REQUIRE(fake.reports.at(touchpad::kReportId).size() == 1);
-    CHECK(fake.reports.at(touchpad::kReportId)[0] == 0x00);
-    REQUIRE(fake.writes.size() == 1);
-    CHECK(fake.writes.front().first == touchpad::kReportId);
-    REQUIRE(fake.writes.front().second.size() == 1);
-    CHECK(fake.writes.front().second[0] == 0x00);
+    REQUIRE(device.device().reports.at(Touchpad::report_id).size() == 1);
+    CHECK(device.device().reports.at(Touchpad::report_id)[0] == 0x00);
+    REQUIRE(device.device().writes.size() == 1);
+    CHECK(device.device().writes.front().first == Touchpad::report_id);
+    REQUIRE(device.device().writes.front().second.size() == 1);
+    CHECK(device.device().writes.front().second[0] == 0x00);
 
-    auto off = touchpad::get_enabled(fake);
+    auto off = device.is_enabled();
     REQUIRE(off.has_value());
     CHECK_FALSE(*off);
 
-    auto toggled = touchpad::toggle(fake);
+    auto toggled = device.toggle();
     REQUIRE(toggled.has_value());
     CHECK(*toggled);
-    REQUIRE(fake.reports.at(touchpad::kReportId).size() == 1);
-    CHECK(fake.reports.at(touchpad::kReportId)[0] == 0x01);
+    REQUIRE(device.device().reports.at(Touchpad::report_id).size() == 1);
+    CHECK(device.device().reports.at(Touchpad::report_id)[0] == 0x01);
 }
 
 TEST_CASE("touchpad reports missing or short feature reports") {
+    using Touchpad = touchpad::Touchpad<FakeHid>;
     FakeHid fake;
-    auto missing = touchpad::get_enabled(fake);
+    Touchpad device{std::move(fake)};
+
+    auto missing = device.is_enabled();
     REQUIRE_FALSE(missing.has_value());
     CHECK(missing.error() == touchpad::TouchpadError::ReadFailed);
 
-    fake.reports[touchpad::kReportId] = {};
-    auto empty = touchpad::get_enabled(fake);
+    device.device().reports[Touchpad::report_id] = {};
+    auto empty = device.is_enabled();
     REQUIRE_FALSE(empty.has_value());
     CHECK(empty.error() == touchpad::TouchpadError::ReadFailed);
 }
@@ -367,15 +381,18 @@ TEST_CASE("touchpad selection returns null when only non-touchpads exist") {
 }
 
 TEST_CASE("touchpad maps HID backend failures") {
+    using Touchpad = touchpad::Touchpad<FakeHid>;
     FakeHid fake;
     fake.read_error = hid::HidError::OpenFailed;
-    auto read = touchpad::get_enabled(fake);
+    Touchpad device{std::move(fake)};
+
+    auto read = device.is_enabled();
     REQUIRE_FALSE(read.has_value());
     CHECK(read.error() == touchpad::TouchpadError::OpenFailed);
 
-    fake.read_error.reset();
-    fake.write_error = hid::HidError::WriteFailed;
-    auto write = touchpad::set_enabled(fake, true);
+    device.device().read_error.reset();
+    device.device().write_error = hid::HidError::WriteFailed;
+    auto write = device.set_enabled(true);
     REQUIRE_FALSE(write.has_value());
     CHECK(write.error() == touchpad::TouchpadError::WriteFailed);
 }

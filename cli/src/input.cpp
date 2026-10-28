@@ -16,6 +16,7 @@
 #include <filesystem>
 #include <format>
 #include <string>
+#include <optional>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -212,7 +213,9 @@ std::expected<void, InputError> watch_touchpad() {
     for (const auto &device : devices)
         eprintln("  {}: {}", device.path, device.name);
 
-    return poll_loop(devices, [](EventDevice &device, const input_event &event) {
+    std::optional<touchpad::HidTouchpad> touchpad_device;
+    return poll_loop(devices, [&touchpad_device](EventDevice &device,
+                                                 const input_event &event) {
         if (event.type != EV_KEY)
             return;
         if (event.code == KEY_LEFTMETA) {
@@ -234,7 +237,16 @@ std::expected<void, InputError> watch_touchpad() {
         if (!toggle)
             return;
 
-        auto state = touchpad::toggle();
+        if (!touchpad_device) {
+            auto opened = touchpad::open();
+            if (!opened) {
+                eprintln("touchpad: {}", touchpad::describe(opened.error()));
+                return;
+            }
+            touchpad_device.emplace(std::move(*opened));
+        }
+
+        auto state = touchpad_device->toggle();
         if (!state) {
             eprintln("touchpad: {}", touchpad::describe(state.error()));
             return;

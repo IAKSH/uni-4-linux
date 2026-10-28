@@ -39,119 +39,119 @@ constexpr std::uint8_t scale_rgb(std::uint8_t value) noexcept {
 }
 
 template <EcBackend EcT>
-std::expected<void, EcError> commit(EcT &ec) {
-    return ec.update(reg(Reg::KbColorTrigger), kKbTriggerRgb, kKbTriggerRgb);
-}
+class Keyboard {
+public:
+    explicit Keyboard(EcT &ec) : ec_(ec) {}
 
-// Write already-scaled 0..50 levels, exit firmware rainbow, and commit.
-template <EcBackend EcT>
-std::expected<void, EcError> write_levels(EcT &ec, Rgb levels) {
-    if (auto result = ec.write(reg(Reg::KbColorR), levels.r); !result)
-        return result;
-    if (auto result = ec.write(reg(Reg::KbColorG), levels.g); !result)
-        return result;
-    if (auto result = ec.write(reg(Reg::KbColorB), levels.b); !result)
-        return result;
-
-    return ec.update(reg(Reg::KbColorTrigger), kKbTriggerRainbow | kKbTriggerRgb,
-                     kKbTriggerRgb);
-}
-
-template <EcBackend EcT>
-std::expected<void, EcError> set_color(EcT &ec, Rgb rgb) {
-    return write_levels(ec, Rgb{scale_rgb(rgb.r), scale_rgb(rgb.g), scale_rgb(rgb.b)});
-}
-
-// Brightness 0..4 lives in bits 5..7 of 0x078c; bit 4 applies it.
-template <EcBackend EcT>
-std::expected<void, EcError> set_brightness(EcT &ec, int brightness) {
-    const auto level = std::clamp(brightness, 0, 4);
-    const auto value = static_cast<std::uint8_t>((level << 5) | kKbBrightnessApply);
-    return ec.update(reg(Reg::KbEnable), 0xf0, value);
-}
-
-template <EcBackend EcT>
-std::expected<void, EcError> set_power(EcT &ec, bool on) {
-    if (on) {
-        if (auto result = ec.update(reg(Reg::KbEnable), kKbPowerOff, 0); !result)
-            return result;
-        if (auto result = ec.rewrite(reg(Reg::KbColorTrigger)); !result)
-            return result;
-        if (auto result = ec.rewrite(reg(Reg::KbPowerPrep)); !result)
-            return result;
-
-        auto red = ec.read(reg(Reg::KbColorR));
-        if (!red)
-            return std::unexpected(red.error());
-        auto green = ec.read(reg(Reg::KbColorG));
-        if (!green)
-            return std::unexpected(green.error());
-        auto blue = ec.read(reg(Reg::KbColorB));
-        if (!blue)
-            return std::unexpected(blue.error());
-
-        if (auto result = ec.write(reg(Reg::KbColorR), *red); !result)
-            return result;
-        if (auto result = ec.write(reg(Reg::KbColorG), *green); !result)
-            return result;
-        if (auto result = ec.write(reg(Reg::KbColorB), *blue); !result)
-            return result;
-        return commit(ec);
+    [[nodiscard]] std::expected<void, EcError> set_color(Rgb rgb) {
+        return set_levels(Rgb{scale_rgb(rgb.r), scale_rgb(rgb.g), scale_rgb(rgb.b)});
     }
 
-    if (auto result = ec.rewrite(reg(Reg::KbColorTrigger)); !result)
-        return result;
-    if (auto result = ec.rewrite(reg(Reg::KbPowerPrep)); !result)
-        return result;
-    return ec.update(reg(Reg::KbEnable), kKbPowerOff, kKbPowerOff);
-}
+    // Write already-scaled 0..50 levels, exit firmware rainbow, and commit.
+    [[nodiscard]] std::expected<void, EcError> set_levels(Rgb levels) {
+        if (auto result = ec_.write(reg(Reg::KbColorR), levels.r); !result)
+            return result;
+        if (auto result = ec_.write(reg(Reg::KbColorG), levels.g); !result)
+            return result;
+        if (auto result = ec_.write(reg(Reg::KbColorB), levels.b); !result)
+            return result;
 
-template <EcBackend EcT>
-std::expected<void, EcError> off(EcT &ec) {
-    return set_power(ec, false);
-}
+        return ec_.update(reg(Reg::KbColorTrigger), kKbTriggerRainbow | kKbTriggerRgb,
+                          kKbTriggerRgb);
+    }
 
-template <EcBackend EcT>
-std::expected<void, EcError> set_effect(EcT &ec, bool rainbow) {
-    return ec.update(reg(Reg::KbColorTrigger), kKbTriggerRainbow,
-                     rainbow ? kKbTriggerRainbow : std::uint8_t{0});
-}
+    // Brightness 0..4 lives in bits 5..7 of 0x078c; bit 4 applies it.
+    [[nodiscard]] std::expected<void, EcError> set_brightness(int brightness) {
+        const auto level = std::clamp(brightness, 0, 4);
+        const auto value = static_cast<std::uint8_t>((level << 5) | kKbBrightnessApply);
+        return ec_.update(reg(Reg::KbEnable), 0xf0, value);
+    }
 
-template <EcBackend EcT>
-std::expected<KbdState, EcError> get_state(EcT &ec) {
-    auto red = ec.read(reg(Reg::KbColorR));
-    if (!red)
-        return std::unexpected(red.error());
-    auto green = ec.read(reg(Reg::KbColorG));
-    if (!green)
-        return std::unexpected(green.error());
-    auto blue = ec.read(reg(Reg::KbColorB));
-    if (!blue)
-        return std::unexpected(blue.error());
-    auto enable = ec.read(reg(Reg::KbEnable));
-    if (!enable)
-        return std::unexpected(enable.error());
+    [[nodiscard]] std::expected<void, EcError> set_power(bool on) {
+        if (on) {
+            if (auto result = ec_.update(reg(Reg::KbEnable), kKbPowerOff, 0); !result)
+                return result;
+            if (auto result = ec_.rewrite(reg(Reg::KbColorTrigger)); !result)
+                return result;
+            if (auto result = ec_.rewrite(reg(Reg::KbPowerPrep)); !result)
+                return result;
 
-    const auto brightness = std::min<int>(4, (*enable >> 5) & 0x07);
-    return KbdState{
-        Rgb{*red, *green, *blue},
-        brightness,
-        (*enable & kKbPowerOff) == 0,
-    };
-}
+            auto red = ec_.read(reg(Reg::KbColorR));
+            if (!red)
+                return std::unexpected(red.error());
+            auto green = ec_.read(reg(Reg::KbColorG));
+            if (!green)
+                return std::unexpected(green.error());
+            auto blue = ec_.read(reg(Reg::KbColorB));
+            if (!blue)
+                return std::unexpected(blue.error());
 
-template <EcBackend EcT>
-std::expected<KbdInfo, EcError> probe(EcT &ec) {
-    auto project = ec.read(reg(Reg::ProjectId));
-    if (!project)
-        return std::unexpected(project.error());
+            if (auto result = ec_.write(reg(Reg::KbColorR), *red); !result)
+                return result;
+            if (auto result = ec_.write(reg(Reg::KbColorG), *green); !result)
+                return result;
+            if (auto result = ec_.write(reg(Reg::KbColorB), *blue); !result)
+                return result;
+            return commit();
+        }
 
-    const auto keyboard = ec.read(reg(Reg::KeyboardId)).value_or(0);
-    const auto support = ec.read(reg(Reg::KbSupport)).value_or(0);
-    const auto type = ((support & 0x04) != 0 || keyboard != 0)
-                          ? KbdType::OneZoneRgb
-                          : KbdType::FixedColor;
-    return KbdInfo{*project, keyboard, type};
-}
+        if (auto result = ec_.rewrite(reg(Reg::KbColorTrigger)); !result)
+            return result;
+        if (auto result = ec_.rewrite(reg(Reg::KbPowerPrep)); !result)
+            return result;
+        return ec_.update(reg(Reg::KbEnable), kKbPowerOff, kKbPowerOff);
+    }
+
+    [[nodiscard]] std::expected<void, EcError> off() {
+        return set_power(false);
+    }
+
+    [[nodiscard]] std::expected<void, EcError> set_effect(bool rainbow) {
+        return ec_.update(reg(Reg::KbColorTrigger), kKbTriggerRainbow,
+                          rainbow ? kKbTriggerRainbow : std::uint8_t{0});
+    }
+
+    [[nodiscard]] std::expected<KbdState, EcError> state() {
+        auto red = ec_.read(reg(Reg::KbColorR));
+        if (!red)
+            return std::unexpected(red.error());
+        auto green = ec_.read(reg(Reg::KbColorG));
+        if (!green)
+            return std::unexpected(green.error());
+        auto blue = ec_.read(reg(Reg::KbColorB));
+        if (!blue)
+            return std::unexpected(blue.error());
+        auto enable = ec_.read(reg(Reg::KbEnable));
+        if (!enable)
+            return std::unexpected(enable.error());
+
+        const auto brightness = std::min<int>(4, (*enable >> 5) & 0x07);
+        return KbdState{
+            Rgb{*red, *green, *blue},
+            brightness,
+            (*enable & kKbPowerOff) == 0,
+        };
+    }
+
+    [[nodiscard]] std::expected<KbdInfo, EcError> probe() {
+        auto project = ec_.read(reg(Reg::ProjectId));
+        if (!project)
+            return std::unexpected(project.error());
+
+        const auto keyboard = ec_.read(reg(Reg::KeyboardId)).value_or(0);
+        const auto support = ec_.read(reg(Reg::KbSupport)).value_or(0);
+        const auto type = ((support & 0x04) != 0 || keyboard != 0)
+                              ? KbdType::OneZoneRgb
+                              : KbdType::FixedColor;
+        return KbdInfo{*project, keyboard, type};
+    }
+
+private:
+    [[nodiscard]] std::expected<void, EcError> commit() {
+        return ec_.update(reg(Reg::KbColorTrigger), kKbTriggerRgb, kKbTriggerRgb);
+    }
+
+    EcT &ec_;
+};
 
 } // namespace uni::kbd

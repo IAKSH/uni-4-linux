@@ -27,18 +27,6 @@ int selection_score(const hid::HidDeviceInfo &device) noexcept {
     return score;
 }
 
-std::expected<hid::HidApi, TouchpadError> open_touchpad() {
-    const auto devices = hid::enumerate();
-    const auto *best = select_touchpad(devices);
-    if (!best)
-        return std::unexpected(TouchpadError::NotFound);
-
-    auto handle = hid::HidApi::open(best->path);
-    if (!handle)
-        return std::unexpected(from_hid(handle.error()));
-    return std::move(*handle);
-}
-
 } // namespace
 
 std::string_view describe(TouchpadError error) noexcept {
@@ -86,25 +74,16 @@ select_touchpad(std::span<const hid::HidDeviceInfo> devices) noexcept {
     return best;
 }
 
-std::expected<bool, TouchpadError> get_enabled() {
-    auto device = open_touchpad();
-    if (!device)
-        return std::unexpected(device.error());
-    return get_enabled(*device);
-}
+std::expected<HidTouchpad, TouchpadError> open() {
+    const auto devices = hid::enumerate();
+    const auto *best = select_touchpad(devices);
+    if (!best)
+        return std::unexpected(TouchpadError::NotFound);
 
-std::expected<void, TouchpadError> set_enabled(bool enable) {
-    auto device = open_touchpad();
-    if (!device)
-        return std::unexpected(device.error());
-    return set_enabled(*device, enable);
-}
-
-std::expected<bool, TouchpadError> toggle() {
-    auto device = open_touchpad();
-    if (!device)
-        return std::unexpected(device.error());
-    return toggle(*device);
+    auto handle = hid::HidApi::open(best->path);
+    if (!handle)
+        return std::unexpected(from_hid(handle.error()));
+    return HidTouchpad{std::move(*handle)};
 }
 
 } // namespace uni::touchpad

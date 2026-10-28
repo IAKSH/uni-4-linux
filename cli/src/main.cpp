@@ -129,7 +129,8 @@ std::expected<void, EcError> dump_ec(EcT &ec, std::uint16_t addr, std::uint32_t 
 
 int cmd_probe() {
     return with_ec([](auto &ec) -> std::expected<void, EcError> {
-        auto info = kbd::probe(ec);
+        kbd::Keyboard keyboard{ec};
+        auto info = keyboard.probe();
         if (!info)
             return std::unexpected(info.error());
 
@@ -138,7 +139,7 @@ int cmd_probe() {
                            static_cast<unsigned>(info->keyboard_id));
         uni::println("backlight type: {}", type_name(info->type));
 
-        auto state = kbd::get_state(ec);
+        auto state = keyboard.state();
         if (!state)
             return std::unexpected(state.error());
         uni::println("backlight: R={} G={} B={} brightness={} power={}",
@@ -147,11 +148,16 @@ int cmd_probe() {
                            static_cast<unsigned>(state->levels.b), state->brightness,
                            state->power ? "on" : "off");
 
-        auto touchpad = tp::get_enabled();
-        if (touchpad)
-            uni::println("touchpad: {}", *touchpad ? "enabled" : "disabled");
-        else
+        auto touchpad = tp::open();
+        if (touchpad) {
+            auto enabled = touchpad->is_enabled();
+            if (enabled)
+                uni::println("touchpad: {}", *enabled ? "enabled" : "disabled");
+            else
+                uni::println("touchpad: {}", tp::describe(enabled.error()));
+        } else {
             uni::println("touchpad: {}", tp::describe(touchpad.error()));
+        }
         return {};
     });
 }
@@ -186,31 +192,36 @@ int cmd_ec_dump(std::uint16_t addr, std::uint32_t length) {
 
 int cmd_kbd_color(kbd::Rgb rgb) {
     return with_ec([rgb](auto &ec) -> std::expected<void, EcError> {
-        return kbd::set_color(ec, rgb);
+        kbd::Keyboard keyboard{ec};
+        return keyboard.set_color(rgb);
     });
 }
 
 int cmd_kbd_brightness(int brightness) {
     return with_ec([brightness](auto &ec) -> std::expected<void, EcError> {
-        return kbd::set_brightness(ec, brightness);
+        kbd::Keyboard keyboard{ec};
+        return keyboard.set_brightness(brightness);
     });
 }
 
 int cmd_kbd_power(bool on) {
     return with_ec([on](auto &ec) -> std::expected<void, EcError> {
-        return kbd::set_power(ec, on);
+        kbd::Keyboard keyboard{ec};
+        return keyboard.set_power(on);
     });
 }
 
 int cmd_kbd_effect(bool rainbow) {
     return with_ec([rainbow](auto &ec) -> std::expected<void, EcError> {
-        return kbd::set_effect(ec, rainbow);
+        kbd::Keyboard keyboard{ec};
+        return keyboard.set_effect(rainbow);
     });
 }
 
 int cmd_kbd_off() {
     return with_ec([](auto &ec) -> std::expected<void, EcError> {
-        return kbd::off(ec);
+        kbd::Keyboard keyboard{ec};
+        return keyboard.off();
     });
 }
 
@@ -221,6 +232,7 @@ int cmd_kbd_breathe(kbd::Rgb rgb, int period_ms) {
             kbd::scale_rgb(rgb.g),
             kbd::scale_rgb(rgb.b),
         };
+        kbd::Keyboard keyboard{ec};
         const auto frame = std::chrono::milliseconds(std::max(1, period_ms / 100));
         uni::eprintln(
             "breathing colour {},{},{} period {}ms, Ctrl-C to stop",
@@ -235,7 +247,7 @@ int cmd_kbd_breathe(kbd::Rgb rgb, int period_ms) {
                 static_cast<std::uint8_t>(levels.g * level / uni::kRgbMax),
                 static_cast<std::uint8_t>(levels.b * level / uni::kRgbMax),
             };
-            auto result = kbd::write_levels(ec, current);
+            auto result = keyboard.set_levels(current);
             if (!result)
                 return std::unexpected(result.error());
 
@@ -254,9 +266,10 @@ int cmd_kbd_breathe(kbd::Rgb rgb, int period_ms) {
 
 int cmd_kbd_test(kbd::Rgb rgb) {
     return with_ec([rgb](auto &ec) -> std::expected<void, EcError> {
-        if (auto result = kbd::set_color(ec, rgb); !result)
+        kbd::Keyboard keyboard{ec};
+        if (auto result = keyboard.set_color(rgb); !result)
             return std::unexpected(result.error());
-        if (auto result = kbd::set_brightness(ec, 4); !result)
+        if (auto result = keyboard.set_brightness(4); !result)
             return std::unexpected(result.error());
 
         uni::println("after write, 0x0760-0x0770:");
@@ -268,7 +281,12 @@ int cmd_kbd_test(kbd::Rgb rgb) {
 }
 
 int cmd_tp_get() {
-    auto state = tp::get_enabled();
+    auto device = tp::open();
+    if (!device) {
+        uni::eprintln("touchpad: {}", tp::describe(device.error()));
+        return 1;
+    }
+    auto state = device->is_enabled();
     if (!state) {
         uni::eprintln("touchpad: {}", tp::describe(state.error()));
         return 1;
@@ -278,7 +296,12 @@ int cmd_tp_get() {
 }
 
 int cmd_tp_set(bool enable) {
-    auto result = tp::set_enabled(enable);
+    auto device = tp::open();
+    if (!device) {
+        uni::eprintln("touchpad: {}", tp::describe(device.error()));
+        return 1;
+    }
+    auto result = device->set_enabled(enable);
     if (!result) {
         uni::eprintln("touchpad: {}", tp::describe(result.error()));
         return 1;
@@ -288,7 +311,12 @@ int cmd_tp_set(bool enable) {
 }
 
 int cmd_tp_toggle() {
-    auto state = tp::toggle();
+    auto device = tp::open();
+    if (!device) {
+        uni::eprintln("touchpad: {}", tp::describe(device.error()));
+        return 1;
+    }
+    auto state = device->toggle();
     if (!state) {
         uni::eprintln("touchpad: {}", tp::describe(state.error()));
         return 1;
@@ -308,7 +336,8 @@ int cmd_tp_watch() {
 
 int cmd_fan_get() {
     return with_ec([](auto &ec) -> std::expected<void, EcError> {
-        auto state = fan::get(ec);
+        fan::Fan fan_device{ec};
+        auto state = fan_device.state();
         if (!state)
             return std::unexpected(state.error());
 
@@ -325,7 +354,8 @@ int cmd_fan_get() {
 
 int cmd_fan_boost(bool on) {
     return with_ec([on](auto &ec) -> std::expected<void, EcError> {
-        if (auto result = fan::set_boost(ec, on); !result)
+        fan::Fan fan_device{ec};
+        if (auto result = fan_device.set_boost(on); !result)
             return std::unexpected(result.error());
         uni::println("fan boost {}", on ? "on" : "off");
         return {};
