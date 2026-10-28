@@ -1,0 +1,12 @@
+[Unit]
+Description=uni4 keyboard backlight firmware rainbow
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/sh -c 'modprobe acpi_call 2>/dev/null || true'
+ExecStart=/usr/local/bin/uni4 kbd effect rainbow
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
