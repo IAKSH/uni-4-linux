@@ -1,6 +1,6 @@
 #pragma once
 
-#include "hid.hpp"
+#include <uni/hid.hpp>
 
 #include <array>
 #include <cstddef>

@@ -75,8 +75,8 @@ Byte 1: Touchpad Configuration
 禁用时触摸板控制器自动点亮 LED。通过 hidapi 的
 `hid_get_feature_report` / `hid_send_feature_report` 读写，长度 2 字节。
 
-实现上，[touchpad.hpp](../src/touchpad.hpp) 的协议逻辑只依赖 `HidBackend` 概念；
-[hid.cpp](../src/hid.cpp) 负责 hidapi 枚举、打开和 feature report I/O。
+实现上，[touchpad.hpp](../lib/include/uni/touchpad.hpp) 的协议逻辑只依赖 `HidBackend` 概念；
+[hid.cpp](../lib/src/hid.cpp) 负责 hidapi 枚举、打开和 feature report I/O。
 
 ## Fn+F5
 

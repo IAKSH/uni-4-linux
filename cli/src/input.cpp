@@ -1,6 +1,6 @@
 #include "input.hpp"
 
-#include "touchpad.hpp"
+#include <uni/touchpad.hpp>
 #include "util.hpp"
 
 #include <fcntl.h>

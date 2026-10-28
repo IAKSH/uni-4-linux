@@ -1,11 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
-#include "ec.hpp"
-#include "fan.hpp"
-#include "hid.hpp"
-#include "kbd.hpp"
-#include "touchpad.hpp"
+#include <uni/ec.hpp>
+#include <uni/fan.hpp>
+#include <uni/hid.hpp>
+#include <uni/kbd.hpp>
+#include <uni/touchpad.hpp>
 
 #include <algorithm>
 #include <cstddef>

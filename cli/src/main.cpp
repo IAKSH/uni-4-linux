@@ -1,8 +1,8 @@
-#include "ec.hpp"
-#include "fan.hpp"
+#include <uni/ec.hpp>
+#include <uni/fan.hpp>
 #include "input.hpp"
-#include "kbd.hpp"
-#include "touchpad.hpp"
+#include <uni/kbd.hpp>
+#include <uni/touchpad.hpp>
 #include "util.hpp"
 
 #include <CLI/CLI.hpp>
