@@ -3,12 +3,18 @@
 
 #include "ec.hpp"
 #include "fan.hpp"
+#include "hid.hpp"
 #include "kbd.hpp"
 #include "touchpad.hpp"
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <expected>
 #include <map>
+#include <optional>
+#include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -33,6 +39,36 @@ struct FakeEc {
         return {};
     }
 };
+
+struct FakeHid {
+    std::map<std::uint8_t, std::vector<std::uint8_t>> reports;
+    std::vector<std::pair<std::uint8_t, std::vector<std::uint8_t>>> writes;
+    std::optional<hid::HidError> read_error;
+    std::optional<hid::HidError> write_error;
+
+    std::expected<std::size_t, hid::HidError>
+    get_feature(std::uint8_t report_id, std::span<std::uint8_t> payload) {
+        if (read_error)
+            return std::unexpected(*read_error);
+        const auto it = reports.find(report_id);
+        if (it == reports.end())
+            return std::unexpected(hid::HidError::ReadFailed);
+        const auto count = std::min(payload.size(), it->second.size());
+        std::copy_n(it->second.begin(), count, payload.begin());
+        return count;
+    }
+
+    std::expected<void, hid::HidError>
+    set_feature(std::uint8_t report_id, std::span<const std::uint8_t> payload) {
+        if (write_error)
+            return std::unexpected(*write_error);
+        reports[report_id] = std::vector<std::uint8_t>(payload.begin(), payload.end());
+        writes.emplace_back(report_id, reports[report_id]);
+        return {};
+    }
+};
+
+static_assert(hid::HidBackend<FakeHid>);
 
 std::uint16_t address(Reg value) {
     return reg(value);
@@ -245,4 +281,112 @@ TEST_CASE("touchpad selection accepts PixArt and Uniwill names") {
     CHECK(touchpad::is_touchpad(0x0000, 0x0000, L"", L"UNIW"));
     CHECK(touchpad::is_touchpad(0x0000, 0x0000, L"", L"PixArt"));
     CHECK_FALSE(touchpad::is_touchpad(0x1234, 0x5678, L"Mouse", L"Acme"));
+}
+
+TEST_CASE("touchpad feature reports use the injected HID backend") {
+    FakeHid fake;
+    fake.reports[touchpad::kReportId] = {0x01};
+
+    auto enabled = touchpad::get_enabled(fake);
+    REQUIRE(enabled.has_value());
+    CHECK(*enabled);
+
+    auto disabled = touchpad::set_enabled(fake, false);
+    REQUIRE(disabled.has_value());
+    REQUIRE(fake.reports.at(touchpad::kReportId).size() == 1);
+    CHECK(fake.reports.at(touchpad::kReportId)[0] == 0x00);
+    REQUIRE(fake.writes.size() == 1);
+    CHECK(fake.writes.front().first == touchpad::kReportId);
+    REQUIRE(fake.writes.front().second.size() == 1);
+    CHECK(fake.writes.front().second[0] == 0x00);
+
+    auto off = touchpad::get_enabled(fake);
+    REQUIRE(off.has_value());
+    CHECK_FALSE(*off);
+
+    auto toggled = touchpad::toggle(fake);
+    REQUIRE(toggled.has_value());
+    CHECK(*toggled);
+    REQUIRE(fake.reports.at(touchpad::kReportId).size() == 1);
+    CHECK(fake.reports.at(touchpad::kReportId)[0] == 0x01);
+}
+
+TEST_CASE("touchpad reports missing or short feature reports") {
+    FakeHid fake;
+    auto missing = touchpad::get_enabled(fake);
+    REQUIRE_FALSE(missing.has_value());
+    CHECK(missing.error() == touchpad::TouchpadError::ReadFailed);
+
+    fake.reports[touchpad::kReportId] = {};
+    auto empty = touchpad::get_enabled(fake);
+    REQUIRE_FALSE(empty.has_value());
+    CHECK(empty.error() == touchpad::TouchpadError::ReadFailed);
+}
+
+TEST_CASE("touchpad selection accepts enumerated HID info") {
+    hid::HidDeviceInfo touchpad_device;
+    touchpad_device.vendor_id = 0x093a;
+    touchpad_device.product_id = 0x0255;
+    touchpad_device.bus = hid::HidBus::I2c;
+    touchpad_device.product = L"Touchpad";
+    CHECK(touchpad::is_touchpad(touchpad_device));
+
+    hid::HidDeviceInfo mouse;
+    mouse.vendor_id = 0x1234;
+    mouse.product_id = 0x5678;
+    mouse.product = L"Mouse";
+    CHECK_FALSE(touchpad::is_touchpad(mouse));
+}
+
+TEST_CASE("hid adapter rejects an empty device path") {
+    auto device = hid::HidApi::open("");
+    REQUIRE_FALSE(device.has_value());
+    CHECK(device.error() == hid::HidError::OpenFailed);
+}
+
+TEST_CASE("touchpad selection prefers the I2C PixArt touchpad") {
+    hid::HidDeviceInfo mouse{
+        0x093a, 0x1234, hid::HidBus::Usb, "/dev/hidraw0", L"Mouse", L"PixArt",
+    };
+    hid::HidDeviceInfo touchpad_device{
+        0x093a, 0x0255, hid::HidBus::I2c, "/dev/hidraw1", L"Touchpad", L"UNIW",
+    };
+    const std::vector<hid::HidDeviceInfo> devices{mouse, touchpad_device};
+
+    const auto *selected = touchpad::select_touchpad(devices);
+    REQUIRE(selected != nullptr);
+    CHECK(selected->path == "/dev/hidraw1");
+}
+
+TEST_CASE("touchpad selection returns null when only non-touchpads exist") {
+    const std::vector<hid::HidDeviceInfo> devices{
+        hid::HidDeviceInfo{0x1234, 0x5678, hid::HidBus::Usb, "/dev/hidraw0", L"Mouse",
+                           L"Acme"},
+    };
+    CHECK(touchpad::select_touchpad(devices) == nullptr);
+}
+
+TEST_CASE("touchpad maps HID backend failures") {
+    FakeHid fake;
+    fake.read_error = hid::HidError::OpenFailed;
+    auto read = touchpad::get_enabled(fake);
+    REQUIRE_FALSE(read.has_value());
+    CHECK(read.error() == touchpad::TouchpadError::OpenFailed);
+
+    fake.read_error.reset();
+    fake.write_error = hid::HidError::WriteFailed;
+    auto write = touchpad::set_enabled(fake, true);
+    REQUIRE_FALSE(write.has_value());
+    CHECK(write.error() == touchpad::TouchpadError::WriteFailed);
+}
+
+TEST_CASE("touchpad selection ignores entries without a device path") {
+    const std::vector<hid::HidDeviceInfo> devices{
+        hid::HidDeviceInfo{0x093a, 0x0255, hid::HidBus::I2c, "", L"Touchpad", L""},
+        hid::HidDeviceInfo{0x093a, 0x0255, hid::HidBus::I2c, "/dev/hidraw1",
+                           L"Touchpad", L""},
+    };
+    const auto *selected = touchpad::select_touchpad(devices);
+    REQUIRE(selected != nullptr);
+    CHECK(selected->path == "/dev/hidraw1");
 }
