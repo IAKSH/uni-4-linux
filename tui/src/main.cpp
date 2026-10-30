@@ -28,7 +28,10 @@ void print_help() {
                  "  p       toggle keyboard power\n"
                  "  e       toggle firmware rainbow\n"
                  "  f       toggle fan boost\n"
-                 "  t       toggle touchpad\n";
+                 "  t       toggle touchpad\n"
+                 "\n"
+                 "Mouse:\n"
+                 "  drag the red/green/blue bars, release to apply the colour\n";
 }
 
 } // namespace
@@ -49,21 +52,40 @@ int main(int argc, char **argv) {
     }
 
     uni::tui::Model model;
+    uni::tui::ColorEditor editor;
     model.refresh();
+    editor.sync(model.snapshot().keyboard);
 
     auto screen = ftxui::App::Fullscreen();
-    screen.TrackMouse(false);
+    screen.TrackMouse(true);
 
-    auto renderer = ftxui::Renderer([&model] {
+    auto renderer = ftxui::Renderer([&model, &editor] {
         return uni::tui::render(model.snapshot(), model.status(),
-                                model.status_error());
+                                model.status_error(), editor);
     });
 
+    auto refresh = [&model, &editor] {
+        model.refresh();
+        editor.sync(model.snapshot().keyboard);
+    };
+
     auto component = ftxui::CatchEvent(
-        renderer, [&model, &screen](ftxui::Event event) {
+        renderer, [&model, &editor, &screen, &refresh](ftxui::Event event) {
             using ftxui::Event;
+
+            if (event.is_mouse()) {
+                bool commit = false;
+                if (!editor.handle_mouse(event.mouse(), commit))
+                    return false;
+                if (commit) {
+                    model.set_color(editor.value);
+                    editor.sync(model.snapshot().keyboard);
+                }
+                return true;
+            }
+
             if (event == Event::Custom) {
-                model.refresh();
+                refresh();
                 return true;
             }
             if (event == Event::Character('q') || event == Event::Escape ||
@@ -72,35 +94,44 @@ int main(int argc, char **argv) {
                 return true;
             }
             if (event == Event::Character('r')) {
-                model.refresh();
+                refresh();
                 return true;
             }
             if (event == Event::Character('c')) {
                 model.cycle_color();
+                editor.dirty = false;
+                editor.dragging = -1;
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
             if (event == Event::Character('b')) {
                 model.adjust_brightness(1);
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
             if (event == Event::Character('B')) {
                 model.adjust_brightness(-1);
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
             if (event == Event::Character('p')) {
                 model.toggle_power();
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
             if (event == Event::Character('e')) {
                 model.toggle_effect();
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
             if (event == Event::Character('f')) {
                 model.toggle_fan_boost();
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
             if (event == Event::Character('t')) {
                 model.toggle_touchpad();
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
             return false;
