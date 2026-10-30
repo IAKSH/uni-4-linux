@@ -58,6 +58,7 @@ public:
     void refresh();
 
     void set_color(kbd::Rgb rgb);
+    void set_brightness(int brightness);
     void adjust_brightness(int delta);
     void toggle_power();
     void toggle_effect();

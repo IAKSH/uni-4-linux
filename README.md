@@ -25,7 +25,7 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 | `fan get` / `fan boost on\|off` | 风扇模式/占空比/RPM，风扇全速 |
 | `ec read/write/dump` | 原始 EC 寄存器读写/导出（调试） |
 | `keymap` / `monitor` | AT 键盘扫描码映射、输入事件监视（调试） |
-| `uni-tui` | btop 风格仪表盘，带可拖动 RGB、亮度/风扇进度条和快捷键操作 |
+| `uni-tui` | btop 风格仪表盘，带可拖动 RGB/亮度和风扇进度条、快捷键操作 |
 
 背光空闲自动熄灭由 **EC 固件**处理（约 10 分钟无输入后熄灭，按键即醒），
 不需要常驻守护进程。
@@ -149,7 +149,7 @@ btop 风格仪表盘，约每秒刷新一次；键盘 RGB、亮度、风扇 duty
 | `f` | 风扇 boost 开关 |
 | `t` | 触摸板开关 |
 
-鼠标拖动 R/G/B 进度条时只更新界面；松开鼠标后才会写入 EC 并应用颜色。
+鼠标拖动 R/G/B 或亮度进度条时只更新界面；松开鼠标后才会写入 EC，分别应用颜色或亮度。
 没有 `acpi_call` 或触摸板时，TUI 会在对应面板显示错误信息，不会崩溃。
 
 逆向辅助脚本 [scripts/colorsnap.sh](scripts/colorsnap.sh) 与

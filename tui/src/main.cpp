@@ -31,7 +31,7 @@ void print_help() {
                  "  t       toggle touchpad\n"
                  "\n"
                  "Mouse:\n"
-                 "  drag the red/green/blue bars, release to apply the colour\n";
+                 "  drag the red/green/blue/brightness bars, release to apply\n";
 }
 
 } // namespace
@@ -52,7 +52,7 @@ int main(int argc, char **argv) {
     }
 
     uni::tui::Model model;
-    uni::tui::ColorEditor editor;
+    uni::tui::KeyboardEditor editor;
     model.refresh();
     editor.sync(model.snapshot().keyboard);
 
@@ -74,13 +74,20 @@ int main(int argc, char **argv) {
             using ftxui::Event;
 
             if (event.is_mouse()) {
-                bool commit = false;
-                if (!editor.handle_mouse(event.mouse(), commit))
+                uni::tui::EditTarget target{};
+                if (!editor.handle_mouse(event.mouse(), target))
                     return false;
-                if (commit) {
+                switch (target) {
+                case uni::tui::EditTarget::Color:
                     model.set_color(editor.value);
-                    editor.sync(model.snapshot().keyboard);
+                    break;
+                case uni::tui::EditTarget::Brightness:
+                    model.set_brightness(editor.brightness);
+                    break;
+                case uni::tui::EditTarget::None:
+                    break;
                 }
+                editor.sync(model.snapshot().keyboard);
                 return true;
             }
 

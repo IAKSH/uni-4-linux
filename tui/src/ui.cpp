@@ -42,15 +42,19 @@ ftxui::Color swatch_color(const kbd::Rgb &value) {
 }
 
 ftxui::Element bar(std::string_view label, float fraction, ftxui::Color color,
-                   ftxui::Box *box = nullptr) {
+                   ftxui::Box *box = nullptr,
+                   std::string_view value_text = {}) {
     fraction = std::clamp(fraction, 0.0f, 1.0f);
     auto graph = ftxui::gauge(fraction) | ftxui::color(color);
     if (box != nullptr)
         graph = graph | ftxui::reflect(*box);
+    auto value = value_text.empty()
+                     ? std::format(" {:3.0f}%", fraction * 100.0f)
+                     : std::format(" {}", value_text);
     return ftxui::hbox({
         ftxui::dim(ftxui::text(std::format("{:>10}", label))),
         ftxui::xflex(std::move(graph)),
-        ftxui::text(std::format(" {:3.0f}%", fraction * 100.0f)),
+        ftxui::text(std::move(value)),
     });
 }
 
@@ -62,13 +66,14 @@ ftxui::Element hint(std::string_view key, std::string_view description) {
     });
 }
 
-ftxui::Element keyboard_panel(const Snapshot &snapshot, ColorEditor &editor) {
+ftxui::Element keyboard_panel(const Snapshot &snapshot, KeyboardEditor &editor) {
     using namespace ftxui;
     const auto title = color(Color::Cyan, bold(text(" Keyboard ")));
     const auto &keyboard = snapshot.keyboard;
 
     if (!keyboard.available) {
-        editor.boxes = {};
+        editor.color_boxes = {};
+        editor.brightness_box = {};
         const auto &error =
             !keyboard.error.empty() ? keyboard.error : snapshot.ec_error;
         return window(title, color(Color::Red,
@@ -86,12 +91,14 @@ ftxui::Element keyboard_panel(const Snapshot &snapshot, ColorEditor &editor) {
                          static_cast<unsigned>(editor.value.b))),
     }));
     rows.push_back(bar("red", editor.value.r / 255.0f, Color::Red,
-                       &editor.boxes[0]));
+                       &editor.color_boxes[0]));
     rows.push_back(bar("green", editor.value.g / 255.0f, Color::Green,
-                       &editor.boxes[1]));
+                       &editor.color_boxes[1]));
     rows.push_back(bar("blue", editor.value.b / 255.0f, Color::Blue,
-                       &editor.boxes[2]));
-    rows.push_back(bar("brightness", keyboard.brightness / 4.0f, Color::Yellow));
+                       &editor.color_boxes[2]));
+    rows.push_back(bar("brightness", editor.brightness / 4.0f, Color::Yellow,
+                       &editor.brightness_box,
+                       std::format("{} / 4", editor.brightness)));
     rows.push_back(hbox({
         text("power "),
         color(keyboard.power ? Color::Green : Color::Red,
@@ -201,7 +208,7 @@ ftxui::Element footer() {
         hint("q", "quit"),
         hint("r", "refresh"),
         hint("c", "colour"),
-        hint("drag", "RGB"),
+        hint("drag", "RGB/bright"),
         hint("b/B", "brightness"),
         hint("p", "power"),
         hint("e", "effect"),
@@ -212,7 +219,7 @@ ftxui::Element footer() {
 
 } // namespace
 
-void ColorEditor::sync(const KeyboardSnapshot &keyboard) noexcept {
+void KeyboardEditor::sync(const KeyboardSnapshot &keyboard) noexcept {
     if (dirty || !keyboard.available)
         return;
 
@@ -222,32 +229,36 @@ void ColorEditor::sync(const KeyboardSnapshot &keyboard) noexcept {
     };
     value = kbd::Rgb{convert(keyboard.levels.r), convert(keyboard.levels.g),
                      convert(keyboard.levels.b)};
+    brightness = keyboard.brightness;
 }
 
-int ColorEditor::channel_at(int x, int y) const noexcept {
+int KeyboardEditor::channel_at(int x, int y) const noexcept {
     for (int index = 0; index < 3; ++index) {
-        if (boxes[static_cast<std::size_t>(index)].Contain(x, y))
+        if (color_boxes[static_cast<std::size_t>(index)].Contain(x, y))
             return index;
     }
+    if (brightness_box.Contain(x, y))
+        return 3;
     return -1;
 }
 
-void ColorEditor::begin(int channel, int x) noexcept {
-    if (channel < 0 || channel >= 3)
+void KeyboardEditor::begin(int channel, int x) noexcept {
+    if (channel < 0 || channel > 3)
         return;
     dragging = channel;
     dirty = true;
     set_from_x(channel, x);
 }
 
-void ColorEditor::update(int x) noexcept {
+void KeyboardEditor::update(int x) noexcept {
     if (dragging >= 0)
         set_from_x(dragging, x);
 }
 
-bool ColorEditor::handle_mouse(const ftxui::Mouse &mouse, bool &commit) noexcept {
+bool KeyboardEditor::handle_mouse(const ftxui::Mouse &mouse,
+                                   EditTarget &target) noexcept {
     using ftxui::Mouse;
-    commit = false;
+    target = EditTarget::None;
 
     if (mouse.motion == Mouse::Pressed && mouse.button == Mouse::Left) {
         const int channel = channel_at(mouse.x, mouse.y);
@@ -263,9 +274,8 @@ bool ColorEditor::handle_mouse(const ftxui::Mouse &mouse, bool &commit) noexcept
         return true;
     }
 
-    if (mouse.motion == Mouse::Released &&
-        (dragging >= 0 || dirty)) {
-        commit = true;
+    if (mouse.motion == Mouse::Released && dragging >= 0) {
+        target = dragging == 3 ? EditTarget::Brightness : EditTarget::Color;
         dragging = -1;
         dirty = false;
         return true;
@@ -274,32 +284,39 @@ bool ColorEditor::handle_mouse(const ftxui::Mouse &mouse, bool &commit) noexcept
     return false;
 }
 
-void ColorEditor::set_from_x(int channel, int x) noexcept {
-    const auto &box = boxes[static_cast<std::size_t>(channel)];
+void KeyboardEditor::set_from_x(int channel, int x) noexcept {
+    const auto &box = channel == 3
+                          ? brightness_box
+                          : color_boxes[static_cast<std::size_t>(channel)];
     const int width = std::max(1, box.x_max - box.x_min);
     const float ratio = std::clamp(
         static_cast<float>(x - box.x_min) / static_cast<float>(width), 0.0f,
         1.0f);
-    const auto value8 = static_cast<std::uint8_t>(std::lround(ratio * 255.0f));
 
-    switch (channel) {
-    case 0:
-        value.r = value8;
-        break;
-    case 1:
-        value.g = value8;
-        break;
-    case 2:
-        value.b = value8;
-        break;
-    default:
-        break;
+    if (channel == 3) {
+        brightness = static_cast<int>(std::lround(ratio * 4.0f));
+    } else {
+        const auto value8 =
+            static_cast<std::uint8_t>(std::lround(ratio * 255.0f));
+        switch (channel) {
+        case 0:
+            value.r = value8;
+            break;
+        case 1:
+            value.g = value8;
+            break;
+        case 2:
+            value.b = value8;
+            break;
+        default:
+            break;
+        }
     }
     dirty = true;
 }
 
 ftxui::Element render(const Snapshot &snapshot, std::string_view status,
-                      bool status_error, ColorEditor &editor) {
+                      bool status_error, KeyboardEditor &editor) {
     using namespace ftxui;
 
     const auto header = hbox({

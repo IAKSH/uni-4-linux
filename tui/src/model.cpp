@@ -90,11 +90,17 @@ void Model::set_color(kbd::Rgb rgb) {
                               static_cast<unsigned>(rgb.b)));
 }
 
+void Model::set_brightness(int brightness) {
+    with_keyboard(
+        [brightness](auto &keyboard) {
+            return keyboard.set_brightness(brightness);
+        },
+        std::format("brightness {}", brightness));
+}
+
 void Model::adjust_brightness(int delta) {
     const int current = snapshot_.keyboard.available ? snapshot_.keyboard.brightness : 3;
-    const int next = std::clamp(current + delta, 0, 4);
-    with_keyboard([next](auto &keyboard) { return keyboard.set_brightness(next); },
-                  std::format("brightness {}", next));
+    set_brightness(std::clamp(current + delta, 0, 4));
 }
 
 void Model::toggle_power() {

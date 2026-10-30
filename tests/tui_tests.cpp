@@ -36,7 +36,7 @@ uni::tui::Snapshot sample_snapshot() {
 
 std::string render_text(const uni::tui::Snapshot &snapshot,
                         std::string_view status, bool status_error) {
-    uni::tui::ColorEditor editor;
+    uni::tui::KeyboardEditor editor;
     editor.sync(snapshot.keyboard);
     const auto element = uni::tui::render(snapshot, status, status_error, editor);
     auto screen = ftxui::Screen::Create(ftxui::Dimension::Fixed(100),
@@ -71,15 +71,17 @@ TEST_CASE("TUI renders hardware errors without crashing") {
     CHECK(text.find("hardware unavailable") != std::string::npos);
 }
 
-TEST_CASE("TUI color editor maps drag positions to RGB values") {
-    uni::tui::ColorEditor editor;
-    editor.boxes[0] = ftxui::Box{10, 110, 5, 5};
-    editor.boxes[1] = ftxui::Box{10, 110, 6, 6};
-    editor.boxes[2] = ftxui::Box{10, 110, 7, 7};
+TEST_CASE("TUI keyboard editor maps RGB drag positions") {
+    uni::tui::KeyboardEditor editor;
+    editor.color_boxes[0] = ftxui::Box{10, 110, 5, 5};
+    editor.color_boxes[1] = ftxui::Box{10, 110, 6, 6};
+    editor.color_boxes[2] = ftxui::Box{10, 110, 7, 7};
+    editor.brightness_box = ftxui::Box{10, 110, 8, 8};
 
     CHECK(editor.channel_at(10, 5) == 0);
     CHECK(editor.channel_at(10, 6) == 1);
     CHECK(editor.channel_at(10, 7) == 2);
+    CHECK(editor.channel_at(10, 8) == 3);
     CHECK(editor.channel_at(9, 5) == -1);
 
     editor.begin(0, 10);
@@ -97,6 +99,9 @@ TEST_CASE("TUI color editor maps drag positions to RGB values") {
     editor.begin(2, 60);
     CHECK(editor.value.b == 128);
 
+    editor.begin(3, 60);
+    CHECK(editor.brightness == 2);
+
     // A periodic refresh must not overwrite a drag in progress.
     uni::tui::Snapshot snapshot;
     snapshot.keyboard.available = true;
@@ -109,11 +114,12 @@ TEST_CASE("TUI color editor maps drag positions to RGB values") {
     CHECK(editor.value.r == 255);
     CHECK(editor.value.g == 0);
     CHECK(editor.value.b == 0);
+    CHECK(editor.brightness == 0);
 }
 
-TEST_CASE("TUI color editor tracks reflected RGB gauge boxes") {
+TEST_CASE("TUI keyboard editor tracks reflected RGB and brightness boxes") {
     auto snapshot = sample_snapshot();
-    uni::tui::ColorEditor editor;
+    uni::tui::KeyboardEditor editor;
     editor.sync(snapshot.keyboard);
 
     const auto element = uni::tui::render(snapshot, "drag test", false, editor);
@@ -121,11 +127,14 @@ TEST_CASE("TUI color editor tracks reflected RGB gauge boxes") {
                                         ftxui::Dimension::Fixed(30));
     ftxui::Render(screen, element);
 
-    for (const auto &box : editor.boxes)
+    for (const auto &box : editor.color_boxes)
         CHECK_FALSE(box.IsEmpty());
+    CHECK_FALSE(editor.brightness_box.IsEmpty());
 
-    const auto &red = editor.boxes[0];
+    const auto &red = editor.color_boxes[0];
     CHECK(editor.channel_at(red.x_min, red.y_min) == 0);
+    CHECK(editor.channel_at(editor.brightness_box.x_min,
+                            editor.brightness_box.y_min) == 3);
 
     editor.begin(0, red.x_min);
     CHECK(editor.value.r == 0);
@@ -134,9 +143,9 @@ TEST_CASE("TUI color editor tracks reflected RGB gauge boxes") {
     editor.dirty = false;
 }
 
-TEST_CASE("TUI color editor handles mouse press, drag, and release") {
-    uni::tui::ColorEditor editor;
-    editor.boxes[0] = ftxui::Box{10, 110, 5, 5};
+TEST_CASE("TUI keyboard editor handles RGB mouse press, drag, and release") {
+    uni::tui::KeyboardEditor editor;
+    editor.color_boxes[0] = ftxui::Box{10, 110, 5, 5};
 
     ftxui::Mouse mouse;
     mouse.button = ftxui::Mouse::Left;
@@ -144,23 +153,55 @@ TEST_CASE("TUI color editor handles mouse press, drag, and release") {
     mouse.x = 10;
     mouse.y = 5;
 
-    bool commit = false;
-    CHECK(editor.handle_mouse(mouse, commit));
-    CHECK_FALSE(commit);
+    uni::tui::EditTarget target{};
+    CHECK(editor.handle_mouse(mouse, target));
+    CHECK(target == uni::tui::EditTarget::None);
     CHECK(editor.dragging == 0);
     CHECK(editor.dirty);
     CHECK(editor.value.r == 0);
 
     mouse.motion = ftxui::Mouse::Moved;
     mouse.x = 110;
-    CHECK(editor.handle_mouse(mouse, commit));
+    CHECK(editor.handle_mouse(mouse, target));
     CHECK(editor.value.r == 255);
-    CHECK_FALSE(commit);
+    CHECK(target == uni::tui::EditTarget::None);
 
     mouse.motion = ftxui::Mouse::Released;
-    CHECK(editor.handle_mouse(mouse, commit));
-    CHECK(commit);
+    CHECK(editor.handle_mouse(mouse, target));
+    CHECK(target == uni::tui::EditTarget::Color);
     CHECK(editor.dragging == -1);
     CHECK_FALSE(editor.dirty);
     CHECK(editor.value.r == 255);
+}
+
+TEST_CASE("TUI keyboard editor drags brightness 0..4") {
+    uni::tui::KeyboardEditor editor;
+    editor.brightness_box = ftxui::Box{10, 110, 8, 8};
+
+    ftxui::Mouse mouse;
+    mouse.button = ftxui::Mouse::Left;
+    mouse.motion = ftxui::Mouse::Pressed;
+    mouse.x = 10;
+    mouse.y = 8;
+
+    uni::tui::EditTarget target{};
+    CHECK(editor.handle_mouse(mouse, target));
+    CHECK(editor.dragging == 3);
+    CHECK(editor.brightness == 0);
+
+    mouse.motion = ftxui::Mouse::Moved;
+    mouse.x = 60;
+    CHECK(editor.handle_mouse(mouse, target));
+    CHECK(editor.brightness == 2);
+
+    mouse.x = 110;
+    CHECK(editor.handle_mouse(mouse, target));
+    CHECK(editor.brightness == 4);
+
+    mouse.motion = ftxui::Mouse::Released;
+    CHECK(editor.handle_mouse(mouse, target));
+    CHECK(target == uni::tui::EditTarget::Brightness);
+    CHECK(editor.dragging == -1);
+    CHECK_FALSE(editor.dirty);
+    CHECK(editor.brightness == 4);
 }
