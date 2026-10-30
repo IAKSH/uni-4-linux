@@ -15,14 +15,15 @@
 #include "util.hpp"
 
 namespace uni::cli {
+namespace detail {
 
 enum class Access {
     Read,
     Write,
 };
 
-template <typename Fn>
-int with_ec(Access access, bool force, Fn &&fn) {
+template <Access access, typename Fn>
+int with_ec([[maybe_unused]] bool force, Fn &&fn) {
     auto backend = AcpiEc::open();
     if (!backend) {
         eprintln("EC: {}", describe(backend.error()));
@@ -34,13 +35,15 @@ int with_ec(Access access, bool force, Fn &&fn) {
     if (check.status != MachineStatus::Target)
         eprintln("warning: {}: {}", describe(check.status), check.summary());
 
-    if (access == Access::Write && !check.writes_allowed() && !force) {
-        eprintln("EC: writes disabled because the target machine check failed");
-        eprintln("EC: use --force to override (at your own risk)");
-        return 1;
+    if constexpr (access == Access::Write) {
+        if (!check.writes_allowed() && !force) {
+            eprintln("EC: writes disabled because the target machine check failed");
+            eprintln("EC: use --force to override (at your own risk)");
+            return 1;
+        }
+        if (force && !check.writes_allowed())
+            eprintln("warning: EC writes forced by --force");
     }
-    if (access == Access::Write && force && !check.writes_allowed())
-        eprintln("warning: EC writes forced by --force");
 
     auto result = fn(ec);
     if (!result) {
@@ -50,14 +53,16 @@ int with_ec(Access access, bool force, Fn &&fn) {
     return 0;
 }
 
+} // namespace detail
+
 template <typename Fn>
-int with_ec(bool force, Fn &&fn) {
-    return with_ec(Access::Write, force, std::forward<Fn>(fn));
+int with_ec_read(Fn &&fn) {
+    return detail::with_ec<detail::Access::Read>(false, std::forward<Fn>(fn));
 }
 
 template <typename Fn>
-int with_ec(Fn &&fn) {
-    return with_ec(Access::Read, false, std::forward<Fn>(fn));
+int with_ec_write(bool force, Fn &&fn) {
+    return detail::with_ec<detail::Access::Write>(force, std::forward<Fn>(fn));
 }
 
 template <typename T>

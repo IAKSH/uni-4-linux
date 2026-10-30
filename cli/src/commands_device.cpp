@@ -13,7 +13,7 @@
 namespace uni::cli {
 
 int probe() {
-    return with_ec([](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_read([](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         auto info = keyboard.probe();
         if (!info)
@@ -102,7 +102,7 @@ int tp_watch() {
 }
 
 int fan_get() {
-    return with_ec([](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_read([](auto &ec) -> std::expected<void, EcError> {
         fan::Fan fan_device{ec};
         auto state = fan_device.state();
         if (!state)
@@ -119,7 +119,7 @@ int fan_get() {
 }
 
 int fan_boost(bool on, bool force) {
-    return with_ec(force, [on](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [on](auto &ec) -> std::expected<void, EcError> {
         fan::Fan fan_device{ec};
         if (auto result = fan_device.set_boost(on); !result)
             return std::unexpected(result.error());

@@ -43,7 +43,7 @@ std::expected<void, EcError> dump_ec(EcT &ec, std::uint16_t addr,
 } // namespace
 
 int ec_read(std::uint16_t addr) {
-    return with_ec([addr](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_read([addr](auto &ec) -> std::expected<void, EcError> {
         auto value = ec.read(addr);
         if (!value)
             return std::unexpected(value.error());
@@ -53,7 +53,7 @@ int ec_read(std::uint16_t addr) {
 }
 
 int ec_write(std::uint16_t addr, std::uint8_t value, bool force) {
-    return with_ec(force, [addr, value](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [addr, value](auto &ec) -> std::expected<void, EcError> {
         auto result = ec.write(addr, value);
         if (!result)
             return std::unexpected(result.error());
@@ -63,13 +63,13 @@ int ec_write(std::uint16_t addr, std::uint8_t value, bool force) {
 }
 
 int ec_dump(std::uint16_t addr, std::uint32_t length) {
-    return with_ec([addr, length](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_read([addr, length](auto &ec) -> std::expected<void, EcError> {
         return dump_ec(ec, addr, length);
     });
 }
 
 int kbd_test(kbd::Rgb rgb, bool force) {
-    return with_ec(force, [rgb](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [rgb](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         if (auto result = keyboard.set_color(rgb); !result)
             return std::unexpected(result.error());

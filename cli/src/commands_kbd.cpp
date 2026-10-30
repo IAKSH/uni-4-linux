@@ -13,42 +13,42 @@
 namespace uni::cli {
 
 int kbd_color(kbd::Rgb rgb, bool force) {
-    return with_ec(force, [rgb](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [rgb](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         return keyboard.set_color(rgb);
     });
 }
 
 int kbd_brightness(int brightness, bool force) {
-    return with_ec(force, [brightness](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [brightness](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         return keyboard.set_brightness(brightness);
     });
 }
 
 int kbd_power(bool on, bool force) {
-    return with_ec(force, [on](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [on](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         return keyboard.set_power(on);
     });
 }
 
 int kbd_effect(bool rainbow, bool force) {
-    return with_ec(force, [rainbow](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [rainbow](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         return keyboard.set_effect(rainbow);
     });
 }
 
 int kbd_off(bool force) {
-    return with_ec(force, [](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         return keyboard.off();
     });
 }
 
 int kbd_breathe(kbd::Rgb rgb, int period_ms, bool force) {
-    return with_ec(force, [rgb, period_ms](auto &ec) -> std::expected<void, EcError> {
+    return with_ec_write(force, [rgb, period_ms](auto &ec) -> std::expected<void, EcError> {
         const kbd::Rgb levels{
             kbd::scale_rgb(rgb.r),
             kbd::scale_rgb(rgb.g),
