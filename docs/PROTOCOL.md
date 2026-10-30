@@ -90,6 +90,15 @@ KEY_LEFTMETA + KEY_LEFTCTRL + KEY_F24 (194)
 `tp watch` 监听所有 `/dev/input/event*`，在 F24 按下且 Meta/Ctrl 同时按住时切换。
 也接受 `KEY_F21`、`KEY_TOUCHPAD_TOGGLE`，以及旧映射使用的 keycode 350。
 
+## 目标机检查
+
+写 EC 前会校验：
+
+- DMI `product_name` / `board_name` 包含 `GM5AG0O`
+- EC `0x0740` = `0x10`，`0x073C` = `0x01`
+
+只读操作只警告；写操作默认拒绝，CLI 使用 `--force`、TUI 使用 `F`/`--force` 覆盖。
+
 ## 注意
 
 - 颜色/亮度寄存器是 EC 的暂存区，必须通过 `0x0767` 提交位生效。

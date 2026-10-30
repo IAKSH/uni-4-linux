@@ -26,6 +26,7 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 | `ec read/write/dump` | 原始 EC 寄存器读写/导出（调试） |
 | `keymap` / `monitor` | AT 键盘扫描码映射、输入事件监视（调试） |
 | `uni-tui` | btop 风格仪表盘，带可拖动 RGB/亮度和风扇进度条、快捷键操作 |
+| 目标机检查 | DMI + EC 指纹；非目标机只读警告、写操作默认拒绝 |
 
 背光空闲自动熄灭由 **EC 固件**处理（约 10 分钟无输入后熄灭，按键即醒），
 不需要常驻守护进程。
@@ -129,6 +130,23 @@ sudo uni monitor                    # 监听输入事件
 
 `probe`/`ec read` 显示的是 EC 原始量化值（0-50）；`kbd color` 接受 0-255 并四舍五入到 0-50。
 
+## 安全与目标机检查
+
+EC 写操作会先检查机器身份：
+
+- DMI `product_name`/`board_name` 是否包含 `GM5AG0O`
+- EC 指纹是否为 `project_id=0x10`、`keyboard_id=0x01`
+
+只读命令（`probe`、`ec read`、`ec dump`、`fan get`）在身份不匹配时只打印警告并继续。
+写命令（`kbd ...`、`fan boost`、`ec write`）默认拒绝，必须显式覆盖：
+
+```bash
+sudo uni --force kbd color 255 0 0
+```
+
+强制覆盖时仍会打印警告。注意这不是安全边界：DMI 可以被修改，只用于避免在错误机型上误写 EC。
+systemd 单元在目标机上应能通过检查；如果 DMI 字符串有差异导致误判，可在 `ExecStart` 中加 `--force`。
+
 ## TUI
 
 ```bash
@@ -136,6 +154,12 @@ sudo uni monitor                    # 监听输入事件
 ```
 
 btop 风格仪表盘，约每秒刷新一次；键盘 RGB、亮度、风扇 duty/RPM 都用进度条显示。
+目标机检查失败时，顶部显示常驻警告；写操作默认禁用，按 `F` 或启动时加 `--force` 覆盖。
+
+```bash
+uni-tui --force
+```
+
 快捷键：
 
 | 键 | 动作 |
@@ -148,6 +172,7 @@ btop 风格仪表盘，约每秒刷新一次；键盘 RGB、亮度、风扇 duty
 | `e` | 固件彩虹开关 |
 | `f` | 风扇 boost 开关 |
 | `t` | 触摸板开关 |
+| `F` | 目标机检查失败时强制允许写操作 |
 
 鼠标拖动 R/G/B 或亮度进度条时只更新界面；松开鼠标后才会写入 EC，分别应用颜色或亮度。
 没有 `acpi_call` 或触摸板时，TUI 会在对应面板显示错误信息，不会崩溃。
@@ -178,10 +203,11 @@ sudo systemctl enable --now uni-tpwatch
 lib/
   include/uni/ec.hpp       acpi_call 传输、EC 寄存器表、std::expected 错误
   include/uni/hid.hpp      hidapi 适配层接口：枚举/打开/feature report、HidBackend 概念
+  include/uni/machine.hpp  DMI + EC 指纹目标机检查
   include/uni/kbd.hpp      kbd::Keyboard<EcT> 背光类模板
   include/uni/fan.hpp      fan::Fan<EcT> 风扇类模板
   include/uni/touchpad.hpp touchpad::Touchpad<HidT> 会话类模板 + touchpad::open()
-  src/ec.cpp / hid.cpp / touchpad.cpp
+  src/ec.cpp / hid.cpp / machine.cpp / touchpad.cpp
 cli/
   src/main.cpp             ~24 行：构造 CLI、parse、dispatch
   src/cli.hpp / cli.cpp    Options/Commands、CLI11 命令树、分发
