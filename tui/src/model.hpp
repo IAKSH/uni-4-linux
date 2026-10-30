@@ -100,6 +100,7 @@ private:
 
     std::optional<Ec<AcpiEc>> ec_;
     std::optional<touchpad::HidTouchpad> touchpad_;
+    MachineInfo machine_info_{read_machine_info()};
     MachineCheck machine_;
     Snapshot snapshot_;
     std::string ec_error_;

@@ -31,20 +31,22 @@ void Model::refresh() {
     snapshot_.force_writes = force_writes_;
 
     if (ensure_ec()) {
-        machine_ = detect_machine(*ec_);
-        snapshot_.machine = machine_;
-
         kbd::Keyboard keyboard{*ec_};
 
         auto info = keyboard.probe();
+        std::optional<EcIdentity> identity;
         if (info) {
             snapshot_.keyboard.available = true;
             snapshot_.keyboard.project_id = info->project_id;
             snapshot_.keyboard.keyboard_id = info->keyboard_id;
             snapshot_.keyboard.type = info->type;
+            identity = EcIdentity{info->project_id, info->keyboard_id};
         } else {
             snapshot_.keyboard.error = std::string(describe(info.error()));
         }
+
+        machine_ = check_machine(machine_info_, identity);
+        snapshot_.machine = machine_;
 
         auto state = keyboard.state();
         if (state) {
@@ -70,7 +72,7 @@ void Model::refresh() {
             snapshot_.fan.error = std::string(describe(fan_state.error()));
         }
     } else {
-        machine_ = check_machine(read_machine_info(), std::nullopt);
+        machine_ = check_machine(machine_info_, std::nullopt);
         snapshot_.machine = machine_;
         snapshot_.ec_error = ec_error_;
     }
