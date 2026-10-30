@@ -1,0 +1,11 @@
+#pragma once
+
+#include <string_view>
+
+namespace uni {
+
+inline constexpr std::string_view version = "@UNI_VERSION_STRING@";
+inline constexpr std::string_view git_hash = "@UNI_GIT_HASH@";
+inline constexpr std::string_view git_tag = "@UNI_GIT_TAG@";
+
+} // namespace uni

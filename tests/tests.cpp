@@ -6,6 +6,7 @@
 #include <uni/hid.hpp>
 #include <uni/kbd.hpp>
 #include <uni/machine.hpp>
+#include <uni/version.hpp>
 #include <uni/touchpad.hpp>
 
 #include <algorithm>
@@ -442,4 +443,9 @@ TEST_CASE("machine check classifies DMI and EC identity") {
     CHECK_FALSE(uni::check_machine(other, identity).writes_allowed());
     CHECK_FALSE(uni::check_machine(target, std::nullopt).writes_allowed());
     CHECK_FALSE(uni::check_machine(target, identity).summary().empty());
+}
+
+TEST_CASE("version metadata is generated") {
+    CHECK_FALSE(uni::version.empty());
+    CHECK(uni::version.find("$Format") == std::string_view::npos);
 }

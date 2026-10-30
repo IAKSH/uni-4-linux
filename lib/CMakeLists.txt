@@ -4,7 +4,10 @@ add_library(unicore STATIC
     src/machine.cpp
     src/touchpad.cpp
 )
-target_include_directories(unicore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(unicore PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_BINARY_DIR}/generated/include
+)
 target_compile_features(unicore PUBLIC cxx_std_23)
 uni_enable_warnings(unicore)
 

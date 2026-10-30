@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(GNUInstallDirs)
 include(CTest)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/GitVersion.cmake)
 
 option(UNI_BUILD_TUI "Build the FTXUI-based uni-tui" ON)
 

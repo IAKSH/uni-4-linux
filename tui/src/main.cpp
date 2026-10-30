@@ -1,6 +1,8 @@
 #include "model.hpp"
 #include "ui.hpp"
 
+#include <uni/version.hpp>
+
 #include <ftxui/ftxui.hpp>
 
 #include <atomic>
@@ -8,10 +10,6 @@
 #include <iostream>
 #include <string_view>
 #include <thread>
-
-#ifndef UNI_VERSION
-#define UNI_VERSION "0.1.0"
-#endif
 
 namespace {
 
@@ -45,7 +43,7 @@ int main(int argc, char **argv) {
     for (int index = 1; index < argc; ++index) {
         const std::string_view arg{argv[index]};
         if (arg == "--version") {
-            std::cout << "uni-tui " UNI_VERSION "\n";
+            std::cout << "uni-tui " << uni::version << "\n";
             return 0;
         }
         if (arg == "--help" || arg == "-h") {

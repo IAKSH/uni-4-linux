@@ -130,6 +130,35 @@ sudo uni monitor                    # 监听输入事件
 
 `probe`/`ec read` 显示的是 EC 原始量化值（0-50）；`kbd color` 接受 0-255 并四舍五入到 0-50。
 
+## 版本
+
+版本由 Git 信息生成：
+
+```bash
+uni --version
+uni-tui --version
+```
+
+格式：
+
+| 构建来源 | 示例 |
+|---|---|
+| HEAD 正好在 `v0.1.0` tag | `uni 0.1.0` |
+| tag 之后有提交 | `uni 0.1.0-3-g2c687d3` |
+| 没有 tag 的 Git 构建 | `uni 0.1.0+g2c687d3` |
+| 无 `.git` 的源码构建 | `uni 0.1.0+unknown` |
+| 工作区有修改 | 末尾 `-dirty` |
+
+无 Git 信息时不会伪装成正式 release，而是显示 `+unknown`。TUI 标题栏也会显示版本。
+
+源码 tar 或打包环境可以显式指定：
+
+```bash
+cmake -S . -B build -DUNI_VERSION_OVERRIDE=0.1.0-1
+```
+
+发布 tag 使用 `vMAJOR.MINOR.PATCH`，并同步更新 `CMakeLists.txt` 的 `project(... VERSION ...)`。
+
 ## 安全与目标机检查
 
 EC 写操作会先检查机器身份：

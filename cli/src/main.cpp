@@ -1,14 +1,13 @@
 #include "cli.hpp"
 
-#include <CLI/CLI.hpp>
+#include <uni/version.hpp>
 
-#ifndef UNI_VERSION
-#define UNI_VERSION "0.1.0"
-#endif
+#include <CLI/CLI.hpp>
+#include <format>
 
 int main(int argc, char **argv) {
     CLI::App app{"Uniwill EC control for the MECHREVO Jiguang Pro (GM5AG0O)"};
-    app.set_version_flag("-V,--version", UNI_VERSION);
+    app.set_version_flag("-V,--version", std::format("uni {}", uni::version));
     app.require_subcommand(1);
 
     uni::cli::Options options;

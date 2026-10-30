@@ -1,5 +1,7 @@
 #include "ui.hpp"
 
+#include <uni/version.hpp>
+
 #include <ftxui/ftxui.hpp>
 
 #include <algorithm>
@@ -336,6 +338,7 @@ ftxui::Element render(const Snapshot &snapshot, std::string_view status,
 
     const auto header = hbox({
         bgcolor(Color::Blue, bold(text(" uni-4-linux "))),
+        color(Color::GrayLight, text(std::format(" v{} ", uni::version))),
         color(Color::Cyan, bold(text(" GM5AG0O "))),
         filler(),
         color(Color::GrayLight, text(std::format(" {} ", clock_text(snapshot.updated)))),

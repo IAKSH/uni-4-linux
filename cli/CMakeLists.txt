@@ -19,7 +19,6 @@ target_include_directories(uni PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(uni PRIVATE unicore CLI11::CLI11)
 target_compile_features(uni PRIVATE cxx_std_23)
 uni_enable_warnings(uni)
-target_compile_definitions(uni PRIVATE UNI_VERSION="${PROJECT_VERSION}")
 
 # Keep the historical build/uni path for scripts and README examples.
 set_target_properties(uni PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")

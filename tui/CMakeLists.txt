@@ -17,7 +17,6 @@ add_executable(uni_tui src/main.cpp)
 target_link_libraries(uni_tui PRIVATE unitui)
 target_compile_features(uni_tui PRIVATE cxx_std_23)
 uni_enable_warnings(uni_tui)
-target_compile_definitions(uni_tui PRIVATE UNI_VERSION="${PROJECT_VERSION}")
 set_target_properties(uni_tui PROPERTIES
     OUTPUT_NAME "uni-tui"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
