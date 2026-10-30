@@ -5,6 +5,7 @@
 #include <uni/fan.hpp>
 #include <uni/hid.hpp>
 #include <uni/kbd.hpp>
+#include <uni/machine.hpp>
 #include <uni/touchpad.hpp>
 
 #include <algorithm>
@@ -410,4 +411,35 @@ TEST_CASE("touchpad selection ignores entries without a device path") {
     const auto *selected = touchpad::select_touchpad(devices);
     REQUIRE(selected != nullptr);
     CHECK(selected->path == "/dev/hidraw1");
+}
+
+TEST_CASE("machine check classifies DMI and EC identity") {
+    const uni::MachineInfo target{"Jiguang Pro Series GM5AG0O", "GM5AG0O",
+                                  "MECHREVO"};
+    const uni::MachineInfo other{"Other Laptop", "OTHER-BOARD", "Other Vendor"};
+    const uni::MachineInfo empty{};
+    const std::optional<uni::EcIdentity> identity =
+        uni::EcIdentity{0x10, 0x01};
+    const std::optional<uni::EcIdentity> wrong =
+        uni::EcIdentity{0x00, 0x01};
+
+    CHECK(uni::check_machine(target, identity).status ==
+          uni::MachineStatus::Target);
+    CHECK(uni::check_machine(target, std::nullopt).status ==
+          uni::MachineStatus::EcMismatch);
+    CHECK(uni::check_machine(target, wrong).status ==
+          uni::MachineStatus::EcMismatch);
+    CHECK(uni::check_machine(other, identity).status ==
+          uni::MachineStatus::LikelyTarget);
+    CHECK(uni::check_machine(other, std::nullopt).status ==
+          uni::MachineStatus::Mismatch);
+    CHECK(uni::check_machine(empty, std::nullopt).status ==
+          uni::MachineStatus::Unknown);
+    CHECK(uni::check_machine(empty, identity).status ==
+          uni::MachineStatus::LikelyTarget);
+
+    CHECK(uni::check_machine(target, identity).writes_allowed());
+    CHECK_FALSE(uni::check_machine(other, identity).writes_allowed());
+    CHECK_FALSE(uni::check_machine(target, std::nullopt).writes_allowed());
+    CHECK_FALSE(uni::check_machine(target, identity).summary().empty());
 }

@@ -1,6 +1,7 @@
 add_library(unicore STATIC
     src/ec.cpp
     src/hid.cpp
+    src/machine.cpp
     src/touchpad.cpp
 )
 target_include_directories(unicore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
