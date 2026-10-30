@@ -30,6 +30,10 @@ uni::tui::Snapshot sample_snapshot() {
 
     snapshot.touchpad.available = true;
     snapshot.touchpad.enabled = true;
+
+    snapshot.machine.status = uni::MachineStatus::Target;
+    snapshot.machine.info = {"Jiguang Pro Series GM5AG0O", "GM5AG0O", "MECHREVO"};
+    snapshot.machine.ec = uni::EcIdentity{0x10, 0x01};
     snapshot.updated = std::chrono::system_clock::now();
     return snapshot;
 }
@@ -64,6 +68,8 @@ TEST_CASE("TUI renders hardware errors without crashing") {
     uni::tui::Snapshot snapshot;
     snapshot.ec_error = "no acpi_call";
     snapshot.touchpad.error = "touchpad not found";
+    snapshot.machine.status = uni::MachineStatus::Mismatch;
+    snapshot.machine.info = {"Other Laptop", "OTHER-BOARD", "Other Vendor"};
 
     const auto text = render_text(snapshot, "hardware unavailable", true);
     CHECK(text.find("no acpi_call") != std::string::npos);
@@ -204,4 +210,25 @@ TEST_CASE("TUI keyboard editor drags brightness 0..4") {
     CHECK(editor.dragging == -1);
     CHECK_FALSE(editor.dirty);
     CHECK(editor.brightness == 4);
+}
+
+TEST_CASE("TUI shows target warning and forced-write state") {
+    auto snapshot = sample_snapshot();
+    snapshot.machine.status = uni::MachineStatus::Mismatch;
+    snapshot.machine.info = {"Other Laptop", "OTHER-BOARD", "Other Vendor"};
+    snapshot.machine.ec = std::nullopt;
+    snapshot.force_writes = false;
+
+    auto text = render_text(snapshot, "restricted", false);
+    CHECK(text.find("target check") != std::string::npos);
+    CHECK(text.find("press F") != std::string::npos);
+    CHECK(text.find("Other Laptop") != std::string::npos);
+
+    snapshot.force_writes = true;
+    text = render_text(snapshot, "forced", false);
+    CHECK(text.find("FORCED") != std::string::npos);
+
+    auto target = sample_snapshot();
+    text = render_text(target, "target", false);
+    CHECK(text.find("target check") == std::string::npos);
 }

@@ -29,6 +29,10 @@ void print_help() {
                  "  e       toggle firmware rainbow\n"
                  "  f       toggle fan boost\n"
                  "  t       toggle touchpad\n"
+                 "  F       force EC writes when target check fails\n"
+                 "\n"
+                 "Options:\n"
+                 "  --force  allow EC writes on machine-check failure\n"
                  "\n"
                  "Mouse:\n"
                  "  drag the red/green/blue/brightness bars, release to apply\n";
@@ -37,8 +41,9 @@ void print_help() {
 } // namespace
 
 int main(int argc, char **argv) {
-    if (argc > 1) {
-        const std::string_view arg{argv[1]};
+    bool force_writes = false;
+    for (int index = 1; index < argc; ++index) {
+        const std::string_view arg{argv[index]};
         if (arg == "--version") {
             std::cout << "uni-tui " UNI_VERSION "\n";
             return 0;
@@ -47,11 +52,15 @@ int main(int argc, char **argv) {
             print_help();
             return 0;
         }
+        if (arg == "--force") {
+            force_writes = true;
+            continue;
+        }
         print_help();
         return 2;
     }
 
-    uni::tui::Model model;
+    uni::tui::Model model{force_writes};
     uni::tui::KeyboardEditor editor;
     model.refresh();
     editor.sync(model.snapshot().keyboard);
@@ -139,6 +148,10 @@ int main(int argc, char **argv) {
             if (event == Event::Character('t')) {
                 model.toggle_touchpad();
                 editor.sync(model.snapshot().keyboard);
+                return true;
+            }
+            if (event == Event::Character('F')) {
+                model.set_force_writes(true);
                 return true;
             }
             return false;

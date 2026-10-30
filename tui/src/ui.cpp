@@ -202,6 +202,18 @@ ftxui::Element status_line(std::string_view status, bool error) {
     });
 }
 
+ftxui::Element machine_banner(const Snapshot &snapshot) {
+    using namespace ftxui;
+    const auto state =
+        snapshot.force_writes
+            ? color(Color::Yellow, bold(text("EC writes FORCED by user")))
+            : color(Color::Red,
+                    bold(text("EC writes disabled; press F to allow or start "
+                              "with --force")));
+    return window(color(Color::Red, bold(text(" target check "))),
+                  vbox({paragraph(snapshot.machine.summary()), state}));
+}
+
 ftxui::Element footer() {
     using namespace ftxui;
     return hflow({
@@ -214,6 +226,7 @@ ftxui::Element footer() {
         hint("e", "effect"),
         hint("f", "fan boost"),
         hint("t", "touchpad"),
+        hint("F", "force writes"),
     });
 }
 
@@ -326,16 +339,18 @@ ftxui::Element render(const Snapshot &snapshot, std::string_view status,
         color(Color::GrayLight, text(std::format(" {} ", clock_text(snapshot.updated)))),
     });
 
-    const auto body = vbox({
-        header,
-        flex(hbox({flex(keyboard_panel(snapshot, editor)), flex(fan_panel(snapshot))})),
-        hbox({flex(touchpad_panel(snapshot)), flex(ec_panel(snapshot))}),
-        separator(),
-        status_line(status, status_error),
-        footer(),
-    });
+    Elements rows{header};
+    if (snapshot.machine.status != MachineStatus::Target)
+        rows.push_back(machine_banner(snapshot));
+    rows.push_back(
+        flex(hbox({flex(keyboard_panel(snapshot, editor)),
+                   flex(fan_panel(snapshot))})));
+    rows.push_back(hbox({flex(touchpad_panel(snapshot)), flex(ec_panel(snapshot))}));
+    rows.push_back(separator());
+    rows.push_back(status_line(status, status_error));
+    rows.push_back(footer());
 
-    return bgcolor(Color::RGB(10, 12, 20), border(body));
+    return bgcolor(Color::RGB(10, 12, 20), border(vbox(std::move(rows))));
 }
 
 } // namespace uni::tui

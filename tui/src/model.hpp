@@ -2,6 +2,7 @@
 
 #include <uni/ec.hpp>
 #include <uni/kbd.hpp>
+#include <uni/machine.hpp>
 #include <uni/touchpad.hpp>
 
 #include <chrono>
@@ -47,15 +48,19 @@ struct Snapshot {
     KeyboardSnapshot keyboard;
     FanSnapshot fan;
     TouchpadSnapshot touchpad;
+    MachineCheck machine;
+    bool force_writes{};
     std::string ec_error;
     std::chrono::system_clock::time_point updated{};
 };
 
 class Model {
 public:
-    Model() = default;
+    explicit Model(bool force_writes = false)
+        : force_writes_(force_writes) {}
 
     void refresh();
+    void set_force_writes(bool force);
 
     void set_color(kbd::Rgb rgb);
     void set_brightness(int brightness);
@@ -73,6 +78,7 @@ public:
 private:
     bool ensure_ec();
     bool ensure_touchpad();
+    bool guard_write();
     void set_status(std::string message, bool error);
 
     template <typename Fn>
@@ -94,11 +100,13 @@ private:
 
     std::optional<Ec<AcpiEc>> ec_;
     std::optional<touchpad::HidTouchpad> touchpad_;
+    MachineCheck machine_;
     Snapshot snapshot_;
     std::string ec_error_;
     std::string touchpad_error_;
     std::string status_{"ready"};
     bool status_error_{};
+    bool force_writes_{};
     std::size_t color_index_{};
 };
 
