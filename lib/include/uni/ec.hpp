@@ -67,14 +67,14 @@ public:
     AcpiEc &operator=(AcpiEc &&other) noexcept;
     ~AcpiEc();
 
-    [[nodiscard]] std::expected<std::uint8_t, EcError> read(std::uint16_t addr) noexcept;
-    [[nodiscard]] std::expected<void, EcError> write(std::uint16_t addr, std::uint8_t value) noexcept;
+    [[nodiscard]] std::expected<std::uint8_t, EcError> read(std::uint16_t addr);
+    [[nodiscard]] std::expected<void, EcError> write(std::uint16_t addr, std::uint8_t value);
 
 private:
     explicit AcpiEc(int fd) noexcept : fd_(fd) {}
 
-    [[nodiscard]] std::expected<void, EcError> send(std::string_view method) noexcept;
-    [[nodiscard]] std::expected<std::string, EcError> receive() noexcept;
+    [[nodiscard]] std::expected<void, EcError> send(std::string_view method);
+    [[nodiscard]] std::expected<std::string, EcError> receive();
 
     int fd_{-1};
 };

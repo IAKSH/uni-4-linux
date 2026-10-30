@@ -55,10 +55,10 @@ public:
 
     // payload excludes the report ID; the adapter prepends it.
     [[nodiscard]] std::expected<std::size_t, HidError>
-    get_feature(std::uint8_t report_id, std::span<std::uint8_t> payload) noexcept;
+    get_feature(std::uint8_t report_id, std::span<std::uint8_t> payload);
 
     [[nodiscard]] std::expected<void, HidError>
-    set_feature(std::uint8_t report_id, std::span<const std::uint8_t> payload) noexcept;
+    set_feature(std::uint8_t report_id, std::span<const std::uint8_t> payload);
 
 private:
     struct Impl;

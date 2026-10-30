@@ -99,7 +99,7 @@ uni::AcpiEc::~AcpiEc() {
 }
 
 std::expected<void, uni::EcError>
-uni::AcpiEc::send(std::string_view method) noexcept {
+uni::AcpiEc::send(std::string_view method) {
     if (fd_ < 0)
         return std::unexpected(EcError::CannotOpen);
     if (::lseek(fd_, 0, SEEK_SET) < 0)
@@ -112,7 +112,7 @@ uni::AcpiEc::send(std::string_view method) noexcept {
     return {};
 }
 
-std::expected<std::string, uni::EcError> uni::AcpiEc::receive() noexcept {
+std::expected<std::string, uni::EcError> uni::AcpiEc::receive() {
     if (fd_ < 0)
         return std::unexpected(EcError::CannotOpen);
     if (::lseek(fd_, 0, SEEK_SET) < 0)
@@ -134,7 +134,7 @@ std::expected<std::string, uni::EcError> uni::AcpiEc::receive() noexcept {
 }
 
 std::expected<std::uint8_t, uni::EcError>
-uni::AcpiEc::read(std::uint16_t addr) noexcept {
+uni::AcpiEc::read(std::uint16_t addr) {
     const auto method = std::format("\\_SB.INOU.ECRR 0x{:x}", addr);
     if (auto sent = send(method); !sent)
         return std::unexpected(sent.error());
@@ -148,7 +148,7 @@ uni::AcpiEc::read(std::uint16_t addr) noexcept {
 }
 
 std::expected<void, uni::EcError>
-uni::AcpiEc::write(std::uint16_t addr, std::uint8_t value) noexcept {
+uni::AcpiEc::write(std::uint16_t addr, std::uint8_t value) {
     const auto method = std::format("\\_SB.INOU.ECRW 0x{:x} 0x{:x}", addr,
                                     static_cast<unsigned>(value));
     if (auto sent = send(method); !sent)

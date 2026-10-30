@@ -90,7 +90,7 @@ std::expected<HidApi, HidError> HidApi::open(std::string_view path) {
 }
 
 std::expected<std::size_t, HidError>
-HidApi::get_feature(std::uint8_t report_id, std::span<std::uint8_t> payload) noexcept {
+HidApi::get_feature(std::uint8_t report_id, std::span<std::uint8_t> payload) {
     if (!impl_ || !impl_->handle)
         return std::unexpected(HidError::OpenFailed);
 
@@ -108,7 +108,7 @@ HidApi::get_feature(std::uint8_t report_id, std::span<std::uint8_t> payload) noe
 }
 
 std::expected<void, HidError>
-HidApi::set_feature(std::uint8_t report_id, std::span<const std::uint8_t> payload) noexcept {
+HidApi::set_feature(std::uint8_t report_id, std::span<const std::uint8_t> payload) {
     if (!impl_ || !impl_->handle)
         return std::unexpected(HidError::OpenFailed);
 
