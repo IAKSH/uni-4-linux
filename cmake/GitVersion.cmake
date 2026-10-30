@@ -19,7 +19,10 @@ if(UNI_VERSION_OVERRIDE)
     set(UNI_VERSION_STRING "${UNI_VERSION_OVERRIDE}")
 else()
     find_package(Git QUIET)
-    if(GIT_FOUND)
+    # Only inspect the repository rooted at this source tree.  Without this
+    # check, a source archive extracted inside another checkout could inherit
+    # that parent repository's version metadata.
+    if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
         execute_process(
             COMMAND "${GIT_EXECUTABLE}" describe --tags --always --dirty
                     --abbrev=7 --match "v[0-9]*"
