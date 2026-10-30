@@ -15,6 +15,8 @@
 namespace uni::tui {
 namespace {
 
+constexpr float kFanRpmScale = 6000.0f;
+
 std::string clock_text(std::chrono::system_clock::time_point point) {
     if (point == std::chrono::system_clock::time_point{})
         return "--:--:--";
@@ -138,9 +140,9 @@ ftxui::Element fan_panel(const Snapshot &snapshot) {
     rows.push_back(bar("left duty", fan.left_duty / 200.0f, Color::Cyan));
     rows.push_back(bar("right duty", fan.right_duty / 200.0f, Color::Blue));
     rows.push_back(bar("left rpm",
-                       std::min(1.0f, fan.left_rpm / 6000.0f), Color::Green));
+                       std::min(1.0f, fan.left_rpm / kFanRpmScale), Color::Green));
     rows.push_back(bar("right rpm",
-                       std::min(1.0f, fan.right_rpm / 6000.0f), Color::Magenta));
+                       std::min(1.0f, fan.right_rpm / kFanRpmScale), Color::Magenta));
     rows.push_back(hbox({
         text(std::format("{} rpm  /  {} rpm", fan.left_rpm, fan.right_rpm)),
     }));

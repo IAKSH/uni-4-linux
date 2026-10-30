@@ -9,6 +9,10 @@
 
 namespace {
 
+constexpr std::string_view kTargetDmiFragment{"GM5AG0O"};
+constexpr std::uint8_t kTargetProjectId{0x10};
+constexpr std::uint8_t kTargetKeyboardId{0x01};
+
 std::string trim(std::string_view text) {
     const auto is_space = [](char c) {
         return std::isspace(static_cast<unsigned char>(c)) != 0;
@@ -45,9 +49,11 @@ std::string uni::MachineCheck::summary() const {
     }
 
     return std::format(
-        "expected DMI GM5AG0O / EC project 0x10 keyboard 0x01; "
+        "expected DMI {} / EC project 0x{:02x} keyboard 0x{:02x}; "
         "detected product='{}' board='{}' vendor='{}' {}",
-        info.product, info.board, info.vendor, ec_text);
+        kTargetDmiFragment, static_cast<unsigned>(kTargetProjectId),
+        static_cast<unsigned>(kTargetKeyboardId), info.product, info.board,
+        info.vendor, ec_text);
 }
 
 std::string_view uni::describe(MachineStatus status) noexcept {
@@ -79,12 +85,13 @@ uni::MachineInfo uni::read_machine_info() {
 uni::MachineCheck
 uni::check_machine(const MachineInfo &info,
                    const std::optional<EcIdentity> &ec) {
-    const bool dmi_target =
-        contains(info.product, "GM5AG0O") || contains(info.board, "GM5AG0O");
+    const bool dmi_target = contains(info.product, kTargetDmiFragment) ||
+                            contains(info.board, kTargetDmiFragment);
     const bool dmi_known =
         !info.product.empty() || !info.board.empty() || !info.vendor.empty();
     const bool ec_target =
-        ec && ec->project_id == 0x10 && ec->keyboard_id == 0x01;
+        ec && ec->project_id == kTargetProjectId &&
+        ec->keyboard_id == kTargetKeyboardId;
 
     MachineStatus status = MachineStatus::Unknown;
     if (dmi_target && ec_target)
