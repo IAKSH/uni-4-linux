@@ -8,6 +8,7 @@
 namespace uni::cli {
 
 struct Options {
+    bool force{};
     std::string read_addr;
     std::string write_addr;
     std::string write_value;

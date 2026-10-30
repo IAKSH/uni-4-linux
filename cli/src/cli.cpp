@@ -27,6 +27,9 @@ void add_on_off_option(CLI::App &command, std::string &state) {
 } // namespace
 
 void build_cli(CLI::App &app, Options &options, Commands &commands) {
+    app.add_flag("--force", options.force,
+                 "Allow EC writes when the target machine check fails");
+
     commands.probe = app.add_subcommand("probe", "Print EC/backlight/touchpad state");
 
     auto *ec = app.add_subcommand("ec", "Raw EC register access");
@@ -129,7 +132,7 @@ int dispatch(const Options &options, const Commands &commands) {
             eprintln("invalid address or value");
             return 2;
         }
-        return ec_write(*addr, *value);
+        return ec_write(*addr, *value, options.force);
     }
 
     if (commands.ec_dump->count() > 0) {
@@ -143,39 +146,44 @@ int dispatch(const Options &options, const Commands &commands) {
         return ec_dump(*addr, *length);
     }
 
-    if (commands.kbd_color->count() > 0)
-        return kbd_color(kbd::Rgb{
+    if (commands.kbd_color->count() > 0) {
+        const kbd::Rgb rgb{
             static_cast<std::uint8_t>(options.rgb_r),
             static_cast<std::uint8_t>(options.rgb_g),
             static_cast<std::uint8_t>(options.rgb_b),
-        });
+        };
+        return kbd_color(rgb, options.force);
+    }
 
     if (commands.kbd_brightness->count() > 0)
-        return kbd_brightness(options.brightness);
+        return kbd_brightness(options.brightness, options.force);
 
     if (commands.kbd_power->count() > 0)
-        return kbd_power(options.power_state == "on");
+        return kbd_power(options.power_state == "on", options.force);
 
     if (commands.kbd_effect->count() > 0)
-        return kbd_effect(options.effect_state == "rainbow");
+        return kbd_effect(options.effect_state == "rainbow", options.force);
 
     if (commands.kbd_off->count() > 0)
-        return kbd_off();
+        return kbd_off(options.force);
 
-    if (commands.kbd_breathe->count() > 0)
-        return kbd_breathe(kbd::Rgb{
-                               static_cast<std::uint8_t>(options.rgb_r),
-                               static_cast<std::uint8_t>(options.rgb_g),
-                               static_cast<std::uint8_t>(options.rgb_b),
-                           },
-                           options.breathe_period);
-
-    if (commands.kbd_test->count() > 0)
-        return kbd_test(kbd::Rgb{
+    if (commands.kbd_breathe->count() > 0) {
+        const kbd::Rgb rgb{
             static_cast<std::uint8_t>(options.rgb_r),
             static_cast<std::uint8_t>(options.rgb_g),
             static_cast<std::uint8_t>(options.rgb_b),
-        });
+        };
+        return kbd_breathe(rgb, options.breathe_period, options.force);
+    }
+
+    if (commands.kbd_test->count() > 0) {
+        const kbd::Rgb rgb{
+            static_cast<std::uint8_t>(options.rgb_r),
+            static_cast<std::uint8_t>(options.rgb_g),
+            static_cast<std::uint8_t>(options.rgb_b),
+        };
+        return kbd_test(rgb, options.force);
+    }
 
     if (commands.tp_get->count() > 0)
         return tp_get();
@@ -191,7 +199,7 @@ int dispatch(const Options &options, const Commands &commands) {
     if (commands.fan_get->count() > 0)
         return fan_get();
     if (commands.fan_boost->count() > 0)
-        return fan_boost(options.boost_state == "on");
+        return fan_boost(options.boost_state == "on", options.force);
 
     if (commands.keymap->count() > 0) {
         const auto scancode = parse_scancode(options.keymap_scancode);

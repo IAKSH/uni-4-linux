@@ -52,8 +52,8 @@ int ec_read(std::uint16_t addr) {
     });
 }
 
-int ec_write(std::uint16_t addr, std::uint8_t value) {
-    return with_ec([addr, value](auto &ec) -> std::expected<void, EcError> {
+int ec_write(std::uint16_t addr, std::uint8_t value, bool force) {
+    return with_ec(force, [addr, value](auto &ec) -> std::expected<void, EcError> {
         auto result = ec.write(addr, value);
         if (!result)
             return std::unexpected(result.error());
@@ -68,8 +68,8 @@ int ec_dump(std::uint16_t addr, std::uint32_t length) {
     });
 }
 
-int kbd_test(kbd::Rgb rgb) {
-    return with_ec([rgb](auto &ec) -> std::expected<void, EcError> {
+int kbd_test(kbd::Rgb rgb, bool force) {
+    return with_ec(force, [rgb](auto &ec) -> std::expected<void, EcError> {
         kbd::Keyboard keyboard{ec};
         if (auto result = keyboard.set_color(rgb); !result)
             return std::unexpected(result.error());

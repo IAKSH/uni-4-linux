@@ -118,8 +118,8 @@ int fan_get() {
     });
 }
 
-int fan_boost(bool on) {
-    return with_ec([on](auto &ec) -> std::expected<void, EcError> {
+int fan_boost(bool on, bool force) {
+    return with_ec(force, [on](auto &ec) -> std::expected<void, EcError> {
         fan::Fan fan_device{ec};
         if (auto result = fan_device.set_boost(on); !result)
             return std::unexpected(result.error());

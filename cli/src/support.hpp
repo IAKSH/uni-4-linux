@@ -2,6 +2,7 @@
 
 #include <uni/ec.hpp>
 #include <uni/kbd.hpp>
+#include <uni/machine.hpp>
 
 #include <charconv>
 #include <cstdint>
@@ -15,8 +16,13 @@
 
 namespace uni::cli {
 
+enum class Access {
+    Read,
+    Write,
+};
+
 template <typename Fn>
-int with_ec(Fn &&fn) {
+int with_ec(Access access, bool force, Fn &&fn) {
     auto backend = AcpiEc::open();
     if (!backend) {
         eprintln("EC: {}", describe(backend.error()));
@@ -24,12 +30,34 @@ int with_ec(Fn &&fn) {
     }
 
     Ec ec{std::move(*backend)};
+    const auto check = detect_machine(ec);
+    if (check.status != MachineStatus::Target)
+        eprintln("warning: {}: {}", describe(check.status), check.summary());
+
+    if (access == Access::Write && !check.writes_allowed() && !force) {
+        eprintln("EC: writes disabled because the target machine check failed");
+        eprintln("EC: use --force to override (at your own risk)");
+        return 1;
+    }
+    if (access == Access::Write && force && !check.writes_allowed())
+        eprintln("warning: EC writes forced by --force");
+
     auto result = fn(ec);
     if (!result) {
         eprintln("EC: {}", describe(result.error()));
         return 1;
     }
     return 0;
+}
+
+template <typename Fn>
+int with_ec(bool force, Fn &&fn) {
+    return with_ec(Access::Write, force, std::forward<Fn>(fn));
+}
+
+template <typename Fn>
+int with_ec(Fn &&fn) {
+    return with_ec(Access::Read, false, std::forward<Fn>(fn));
 }
 
 template <typename T>
