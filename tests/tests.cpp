@@ -15,6 +15,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -78,6 +79,7 @@ std::uint16_t address(Reg value) {
 
 TEST_CASE("acpi_call text results are parsed") {
     CHECK(parse_ec_value("0x32").value() == 0x32);
+    CHECK(parse_ec_value(std::string_view{"0x32\0", 5}).value() == 0x32);
     CHECK(parse_ec_value(" 0xFF \n").value() == 0xff);
     CHECK(parse_ec_value("50").value() == 50);
     CHECK(parse_ec_value("0x0").value() == 0);

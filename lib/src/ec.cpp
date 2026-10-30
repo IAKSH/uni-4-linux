@@ -46,6 +46,9 @@ std::string_view uni::describe(EcError error) noexcept {
 
 std::expected<std::uint8_t, uni::EcError>
 uni::parse_ec_value(std::string_view text) noexcept {
+    // acpi_call returns a NUL-terminated buffer without a newline.
+    if (const auto nul = text.find('\0'); nul != std::string_view::npos)
+        text = text.substr(0, nul);
     text = trim(text);
     if (text.empty())
         return std::unexpected(EcError::ReadFailed);
@@ -122,7 +125,7 @@ std::expected<std::string, uni::EcError> uni::AcpiEc::receive() noexcept {
 
     const auto size = static_cast<std::size_t>(count);
     buffer[size] = '\0';
-    const std::string_view text(buffer.data(), size);
+    const std::string_view text(buffer.data());
     if (text.find("Error") != std::string_view::npos ||
         text.find("not supported") != std::string_view::npos)
         return std::unexpected(EcError::DeviceError);
