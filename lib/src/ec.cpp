@@ -1,11 +1,17 @@
 #include <uni/ec.hpp>
 
+#include <array>
 #include <cctype>
 #include <charconv>
 #include <chrono>
+#include <fcntl.h>
 #include <format>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
+#include <unistd.h>
+#include <utility>
 
 namespace {
 
@@ -66,38 +72,73 @@ uni::parse_ec_value(std::string_view text) noexcept {
 
 std::expected<uni::AcpiEc, uni::EcError>
 uni::AcpiEc::open(std::string_view path) {
-    std::fstream file{std::string(path), std::ios::in | std::ios::out};
-    if (!file)
+    const int fd = ::open(std::string(path).c_str(), O_RDWR);
+    if (fd < 0)
         return std::unexpected(EcError::CannotOpen);
-    return AcpiEc{std::move(file)};
+    return AcpiEc{fd};
 }
 
-std::expected<std::string, uni::EcError>
-uni::AcpiEc::evaluate(std::string_view method) noexcept {
-    if (!file_.is_open())
-        return std::unexpected(EcError::CannotOpen);
+uni::AcpiEc::AcpiEc(AcpiEc &&other) noexcept
+    : fd_(std::exchange(other.fd_, -1)) {}
 
-    file_.clear();
-    file_.seekp(0);
-    file_ << method << '\n' << std::flush;
-    if (!file_)
+uni::AcpiEc &uni::AcpiEc::operator=(AcpiEc &&other) noexcept {
+    if (this != &other) {
+        if (fd_ >= 0)
+            ::close(fd_);
+        fd_ = std::exchange(other.fd_, -1);
+    }
+    return *this;
+}
+
+uni::AcpiEc::~AcpiEc() {
+    if (fd_ >= 0)
+        ::close(fd_);
+}
+
+std::expected<void, uni::EcError>
+uni::AcpiEc::send(std::string_view method) noexcept {
+    if (fd_ < 0)
+        return std::unexpected(EcError::CannotOpen);
+    if (::lseek(fd_, 0, SEEK_SET) < 0)
         return std::unexpected(EcError::WriteFailed);
 
-    std::this_thread::sleep_for(kAcpiSettle);
+    const auto command = std::format("{}\n", method);
+    const auto written = ::write(fd_, command.data(), command.size());
+    if (written != static_cast<ssize_t>(command.size()))
+        return std::unexpected(EcError::WriteFailed);
+    return {};
+}
 
-    file_.clear();
-    file_.seekg(0);
-    std::string line;
-    std::getline(file_, line);
-    if (!file_ && !file_.eof())
+std::expected<std::string, uni::EcError> uni::AcpiEc::receive() noexcept {
+    if (fd_ < 0)
+        return std::unexpected(EcError::CannotOpen);
+    if (::lseek(fd_, 0, SEEK_SET) < 0)
         return std::unexpected(EcError::ReadFailed);
-    return line;
+
+    std::array<char, 128> buffer{};
+    const auto count = ::read(fd_, buffer.data(), buffer.size() - 1);
+    if (count <= 0)
+        return std::unexpected(EcError::ReadFailed);
+
+    const auto size = static_cast<std::size_t>(count);
+    buffer[size] = '\0';
+    const std::string_view text(buffer.data(), size);
+    if (text.find("Error") != std::string_view::npos ||
+        text.find("not supported") != std::string_view::npos)
+        return std::unexpected(EcError::DeviceError);
+
+    return std::string(text);
 }
 
 std::expected<std::uint8_t, uni::EcError>
 uni::AcpiEc::read(std::uint16_t addr) noexcept {
     const auto method = std::format("\\_SB.INOU.ECRR 0x{:x}", addr);
-    auto result = evaluate(method);
+    if (auto sent = send(method); !sent)
+        return std::unexpected(sent.error());
+
+    std::this_thread::sleep_for(kAcpiSettle);
+
+    auto result = receive();
     if (!result)
         return std::unexpected(result.error());
     return parse_ec_value(*result);
@@ -107,12 +148,10 @@ std::expected<void, uni::EcError>
 uni::AcpiEc::write(std::uint16_t addr, std::uint8_t value) noexcept {
     const auto method = std::format("\\_SB.INOU.ECRW 0x{:x} 0x{:x}", addr,
                                     static_cast<unsigned>(value));
-    auto result = evaluate(method);
-    if (!result)
-        return std::unexpected(result.error());
+    if (auto sent = send(method); !sent)
+        return std::unexpected(sent.error());
 
-    const auto text = trim(*result);
-    if (text.starts_with("Error") || text.starts_with("not supported"))
-        return std::unexpected(EcError::DeviceError);
+    // ECRW is void; the original implementation never reads a result here.
+    std::this_thread::sleep_for(kAcpiSettle);
     return {};
 }

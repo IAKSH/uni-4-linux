@@ -3,7 +3,6 @@
 #include <concepts>
 #include <cstdint>
 #include <expected>
-#include <fstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -64,19 +63,20 @@ public:
 
     AcpiEc(const AcpiEc &) = delete;
     AcpiEc &operator=(const AcpiEc &) = delete;
-    AcpiEc(AcpiEc &&) = default;
-    AcpiEc &operator=(AcpiEc &&) = default;
-    ~AcpiEc() = default;
+    AcpiEc(AcpiEc &&other) noexcept;
+    AcpiEc &operator=(AcpiEc &&other) noexcept;
+    ~AcpiEc();
 
     [[nodiscard]] std::expected<std::uint8_t, EcError> read(std::uint16_t addr) noexcept;
     [[nodiscard]] std::expected<void, EcError> write(std::uint16_t addr, std::uint8_t value) noexcept;
 
 private:
-    explicit AcpiEc(std::fstream file) : file_(std::move(file)) {}
+    explicit AcpiEc(int fd) noexcept : fd_(fd) {}
 
-    [[nodiscard]] std::expected<std::string, EcError> evaluate(std::string_view method) noexcept;
+    [[nodiscard]] std::expected<void, EcError> send(std::string_view method) noexcept;
+    [[nodiscard]] std::expected<std::string, EcError> receive() noexcept;
 
-    std::fstream file_;
+    int fd_{-1};
 };
 
 template <typename T>
