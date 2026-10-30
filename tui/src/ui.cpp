@@ -240,12 +240,9 @@ void KeyboardEditor::sync(const KeyboardSnapshot &keyboard) noexcept {
     if (dirty || !keyboard.available)
         return;
 
-    const auto convert = [](std::uint8_t level) {
-        return static_cast<std::uint8_t>(
-            (static_cast<int>(level) * 255 + 25) / 50);
-    };
-    value = kbd::Rgb{convert(keyboard.levels.r), convert(keyboard.levels.g),
-                     convert(keyboard.levels.b)};
+    value = kbd::Rgb{kbd::expand_rgb(keyboard.levels.r),
+                     kbd::expand_rgb(keyboard.levels.g),
+                     kbd::expand_rgb(keyboard.levels.b)};
     brightness = keyboard.brightness;
 }
 

@@ -3,12 +3,32 @@
 
 #include "ui.hpp"
 
+#include <uni/ec.hpp>
+#include <uni/kbd.hpp>
+
 #include <ftxui/ftxui.hpp>
 
+#include <array>
 #include <chrono>
+#include <cstdint>
+#include <expected>
 #include <string>
 
 namespace {
+
+struct FakeEc {
+    std::array<std::uint8_t, 0x10000> regs{};
+
+    std::expected<std::uint8_t, uni::EcError> read(std::uint16_t addr) {
+        return regs[addr];
+    }
+
+    std::expected<void, uni::EcError> write(std::uint16_t addr,
+                                            std::uint8_t value) {
+        regs[addr] = value;
+        return {};
+    }
+};
 
 uni::tui::Snapshot sample_snapshot() {
     uni::tui::Snapshot snapshot;
@@ -231,4 +251,52 @@ TEST_CASE("TUI shows target warning and forced-write state") {
     auto target = sample_snapshot();
     text = render_text(target, "target", false);
     CHECK(text.find("target check") == std::string::npos);
+}
+
+TEST_CASE("TUI keeps untouched RGB channels stable across EC quantization") {
+    auto snapshot = sample_snapshot();
+    snapshot.keyboard.levels = {50, 10, 0};
+
+    uni::tui::KeyboardEditor editor;
+    editor.sync(snapshot.keyboard);
+
+    CHECK(editor.value.r == 255);
+    CHECK(editor.value.g == 50);
+    CHECK(editor.value.b == 0);
+    CHECK(uni::kbd::scale_rgb(editor.value.r) == 50);
+    CHECK(uni::kbd::scale_rgb(editor.value.g) == 10);
+    CHECK(uni::kbd::scale_rgb(editor.value.b) == 0);
+}
+
+TEST_CASE("TUI release leaves untouched RGB EC levels unchanged") {
+    FakeEc fake;
+    fake.regs[uni::reg(uni::Reg::KbColorR)] = 50;
+    fake.regs[uni::reg(uni::Reg::KbColorG)] = 10;
+    fake.regs[uni::reg(uni::Reg::KbColorB)] = 0;
+
+    uni::Ec ec{std::move(fake)};
+    uni::kbd::Keyboard keyboard{ec};
+
+    auto snapshot = sample_snapshot();
+    snapshot.keyboard.levels = {50, 10, 0};
+    uni::tui::KeyboardEditor editor;
+    editor.sync(snapshot.keyboard);
+
+    // Simulate dragging red to zero and releasing: set_color writes all
+    // three channels, so green and blue must survive the round trip.
+    editor.value.r = 0;
+    auto written = keyboard.set_color(editor.value);
+    REQUIRE(written.has_value());
+
+    auto state = keyboard.state();
+    REQUIRE(state.has_value());
+    CHECK(state->levels.r == 0);
+    CHECK(state->levels.g == 10);
+    CHECK(state->levels.b == 0);
+
+    snapshot.keyboard.levels = state->levels;
+    editor.sync(snapshot.keyboard);
+    CHECK(editor.value.r == 0);
+    CHECK(editor.value.g == 50);
+    CHECK(editor.value.b == 0);
 }

@@ -39,6 +39,13 @@ constexpr std::uint8_t scale_rgb(std::uint8_t value) noexcept {
     return static_cast<std::uint8_t>(scaled > kRgbMax ? kRgbMax : scaled);
 }
 
+// Inverse of scale_rgb() for an EC level: the result maps back to the same
+// level.  Level 50 expands to 255 so the UI can still reach full brightness.
+constexpr std::uint8_t expand_rgb(std::uint8_t level) noexcept {
+    return level >= kRgbMax ? 255
+                            : static_cast<std::uint8_t>(level * 5u);
+}
+
 template <EcBackend EcT>
 class Keyboard {
 public:

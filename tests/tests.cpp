@@ -108,6 +108,13 @@ TEST_CASE("0..255 RGB values are scaled to the EC's 0..50 range") {
     CHECK(kbd::scale_rgb(245) == 49);
     CHECK(kbd::scale_rgb(250) == 50);
     CHECK(kbd::scale_rgb(255) == 50);
+
+    for (int level = 0; level <= static_cast<int>(kRgbMax); ++level)
+        CHECK(kbd::scale_rgb(kbd::expand_rgb(
+                  static_cast<std::uint8_t>(level))) == level);
+    CHECK(kbd::expand_rgb(0) == 0);
+    CHECK(kbd::expand_rgb(10) == 50);
+    CHECK(kbd::expand_rgb(50) == 255);
 }
 
 TEST_CASE("Ec update and rewrite keep unrelated bits") {
