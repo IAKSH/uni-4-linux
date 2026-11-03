@@ -1,18 +1,9 @@
 # uni-4-linux
 
-> 项目名 `uni-4-linux` 读作 **uni (uniwill) for Linux**；实际命令是 `uni` 和 `uni-tui`。
+**这是一个Vibe Coding项目。**
 
-Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM5AG0O / Uniwill ODM）**：
+面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM5AG0O / Uniwill ODM）** 的Linux 控制工具：
 键盘 RGB 背光、触摸板开关（含 LED）与风扇状态/全速开关。
-
-本项目是 `jiguang-pro-linux` 的 Modern C++ 重写版：
-
-- 只保留 **acpi_call** 一条 EC 访问路径，移除 `/dev/port` 直写后端；
-- 代码分为可复用的 `lib/`、命令行 `cli/` 和 TUI `tui/` 三棵树，通过 CMake `add_subdirectory` 组织；
-- 使用 C++23（`std::expected`、`std::format`、`std::span`）；
-- 命令行解析用 [CLI11](https://github.com/CLIUtils/CLI11)，触摸板 HID 用
-  [hidapi](https://github.com/libusb/hidapi)，TUI 用 [FTXUI](https://github.com/ArthurSonzogni/FTXUI)，测试用 [doctest](https://github.com/doctest/doctest)；
-- 测试通过内存 EC 完成，不需要真机或 `acpi_call`。
 
 ## 功能
 
@@ -28,7 +19,7 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 | `uni-tui` | btop 风格仪表盘，带可拖动 RGB/亮度和风扇进度条、快捷键操作 |
 | 目标机检查 | DMI + EC 指纹；非目标机只读警告、写操作默认拒绝 |
 
-背光空闲自动熄灭由 **EC 固件**处理（约 10 分钟无输入后熄灭，按键即醒），
+背光空闲自动熄灭由 EC 固件处理（约 10 分钟无输入后熄灭，按键即醒），
 不需要常驻守护进程。
 
 ## 依赖
@@ -46,17 +37,14 @@ Linux 控制工具，面向 **机械革命 极光Pro（MECHREVO Jiguang Pro，GM
 
 运行：
 
-- `acpi_call` 内核模块（Arch：`acpi_call-dkms`；其他发行版请从源码构建并加载）
+- `acpi_call` 内核模块（Arch：`acpi_call-dkms`）
 - root 权限（写 `/proc/acpi/call` 与 hidraw feature report 需要）
 
-本仓库开发环境缺少以上包时，安装命令示例：
+安装命令示例：
 
 ```bash
-# Arch（acpi_call-dkms 通常在 AUR，按你的内核选择安装方式）
-sudo pacman -S --needed cmake gcc cli11 hidapi ftxui doctest
-
-# Fedora（acpi_call 需自行构建）
-sudo dnf install cmake gcc-c++ cli11-devel hidapi-devel ftxui-devel doctest-devel
+# Arch
+paru -S --needed cmake gcc cli11 hidapi ftxui doctest acpi_call-dkms
 ```
 
 ## 构建与测试
@@ -204,7 +192,7 @@ uni-tui --force
 | `F` | 目标机检查失败时强制允许写操作 |
 
 鼠标拖动 R/G/B 或亮度进度条时只更新界面；松开鼠标后才会写入 EC，分别应用颜色或亮度。
-没有 `acpi_call` 或触摸板时，TUI 会在对应面板显示错误信息，不会崩溃。
+没有 `acpi_call` 或触摸板时，TUI 会在对应面板显示错误信息。
 
 逆向辅助脚本 [scripts/colorsnap.sh](scripts/colorsnap.sh) 与
 [scripts/snapshot.sh](scripts/snapshot.sh) 只是 `uni ec dump` 的封装，默认使用
@@ -281,7 +269,7 @@ TUI 直接复用 `lib` 的设备类，并维护自己的 `Snapshot` 和 1 秒刷
 ## 已知限制
 
 - EC 只接受 0-50 颜色级别，颜色与呼吸灯有阶梯感，和 Windows 驱动一致。
-- 背光约 10 分钟无输入自动熄灭是 EC 固件行为，软件无法禁用。
+- 目前认为背光约 10 分钟无输入自动熄灭是 EC 固件行为，没有找到可用的常亮方案。
 - 触摸板开关走触摸板控制器的 HID feature report 7；禁用时控制器自动点亮 LED。
 - Fn+F5 会产生 `Meta+Ctrl+F24`，本工具据此切换；物理按键的 EC 扫描码注入不稳定，
   `keymap` 仅作为可选调试手段。
